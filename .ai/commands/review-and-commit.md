@@ -102,13 +102,20 @@ The agent provides:
 Run automated checks:
 
 ```bash
-npm run lint && npm run type-check
+npm run lint \
+  && npm run lint:check-disables \
+  && npm run type-check \
+  && npm run test \
+  && npm run arch:check
 ```
 
 **Required Checks:**
 
 - [ ] ESLint passes (no linting errors)
+- [ ] ESLint disable guard passes (zero `eslint-disable` directives)
 - [ ] TypeScript compiles (no type errors)
+- [ ] Tests pass
+- [ ] Architecture checks pass
 - [ ] No console.log or debugger statements in production code
 - [ ] No hardcoded secrets or credentials
 
@@ -236,7 +243,9 @@ git status && git diff --cached --stat
 
 - ✅ Code review complete with no critical/high priority issues
 - ✅ Linting and type checking pass
-- ✅ FrontX architecture rules verified
+- ✅ ESLint disable guard passes
+- ✅ Tests pass
+- ✅ FrontX architecture checks pass
 - ✅ Commit size ≤ 4000 LOC
 - ✅ Commit message prepared
 
@@ -246,6 +255,8 @@ git status && git diff --cached --stat
 
 - ❌ Critical or high priority issues detected
 - ❌ Linting or type errors
+- ❌ ESLint disable directives found
+- ❌ Tests fail
 - ❌ Architecture violations
 - ❌ Commit size exceeds limit
 
@@ -308,7 +319,9 @@ git log --oneline -n 1 && git show HEAD --stat
 - [ ] Commit size valid (≤ 4000 LOC)
 - [ ] Pre-commit hooks passed
 - [ ] No linting errors
+- [ ] ESLint disable guard passes
 - [ ] TypeScript compiles
+- [ ] Tests pass
 - [ ] FrontX architecture verified
 - [ ] Commit message valid
 
