@@ -342,6 +342,7 @@ export function registerWikiEffects(): void {
       eventBus.emit('wiki/my-reviews/loaded', {
         pullRequests: data.pull_requests || [],
         currentGitUsernames: data.current_git_usernames || [],
+        botUsernames: data.bot_usernames || [],
       });
     } catch (error) {
       const message = extractErrorMessage(

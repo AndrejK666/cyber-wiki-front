@@ -247,6 +247,13 @@
       "statusLocal": "Edit workflow enabled (using local repo)",
       "statusReady": "Edit workflow will be enabled for this space",
       "statusPartial": "Fill all three fields to enable edit workflow"
+    },
+    "botFilterSection": {
+      "title": "Bot Filtering (Optional)",
+      "description": "Specify bot usernames or prefixes to exclude them from reviewer filters and separate their comments",
+      "label": "Bot Usernames / Prefixes",
+      "placeholder": "e.g., coderabbitai, dependabot, renovate",
+      "hint": "Comma-separated list of bot usernames or prefixes. Reviewers matching these will be shown separately."
     }
   },
   "createFile": {
@@ -853,7 +860,10 @@
     "byAuthor": "by {author}",
     "commentCount": "{count} comment",
     "commentCount_plural": "{count} comments",
-    "viewComments": "View comments"
+    "viewComments": "View comments",
+    "botReviewers": "Bots",
+    "botComment": "{count} bot comment",
+    "botComment_plural": "{count} bot comments"
   },
   "spaces": {
     "title": "Spaces",

@@ -66,8 +66,14 @@ export class EnrichmentsApiService extends BaseApiService {
     signal?: AbortSignal,
   ): AsyncGenerator<{ type: string; message?: string; data?: EnrichmentsResponse }> {
     const url = `/api/enrichments/v1/enrichments/stream/?source_uri=${encodeURIComponent(sourceUri)}`;
+    const headers: Record<string, string> = {};
+    const token = localStorage.getItem('cyberwiki_auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     const resp = await fetch(url, {
       credentials: 'include',
+      headers,
       signal,
     });
     if (!resp.ok || !resp.body) return;

@@ -69,6 +69,7 @@ export type Space = {
   edit_fork_ssh_url: string | null;
   edit_fork_local_path: string | null;
   edit_enabled: boolean;
+  bot_usernames: string[];
   filters: string[];
   default_display_name_source: string;
   page_count: number;
@@ -296,6 +297,7 @@ export type UpdateSpaceRequest = {
   edit_fork_repo_slug?: string;
   edit_fork_ssh_url?: string;
   edit_fork_local_path?: string;
+  bot_usernames?: string[];
 };
 
 export type FileTreeResponse = {
@@ -474,11 +476,15 @@ export type MyReviewPR = {
   from_branch?: string;
   reviewers: PRReviewer[];
   comment_count?: number;
+  human_comment_count?: number;
+  bot_comment_count?: number;
 };
 
 export type MyReviewsResponse = {
   pull_requests: MyReviewPR[];
   current_git_usernames?: string[];
+  bot_usernames?: string[];
+  bot_usernames_by_space?: Record<string, string[]>;
 };
 
 export enum EditChangeType {
