@@ -314,15 +314,18 @@ export function registerWikiEffects(): void {
     }
   });
 
-  // Invalidate file cache when a draft is saved/discarded/committed
+  // Invalidate file + blame caches when a draft is saved/discarded/committed
   eventBus.on('wiki/draft/saved', () => {
     fileContentCache.clear();
+    blameCache.clear();
   });
   eventBus.on('wiki/draft/committed', () => {
     fileContentCache.clear();
+    blameCache.clear();
   });
   eventBus.on('wiki/draft/discarded', () => {
     fileContentCache.clear();
+    blameCache.clear();
   });
 
   // Navigate — update hash

@@ -88,14 +88,15 @@ export function CreateFileModal({
   // go stale. Each saved draft fires onCreated with its path + id.
   const expectedSavesRef = useRef(0);
   const completedSavesRef = useRef(0);
-  /** Paths queued for save in submission order — first matches first saved. */
-  const queuedPathsRef = useRef<string[]>([]);
+  /** Paths queued for save — keyed for out-of-order matching. */
+  const queuedPathsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isOpen) return undefined;
-    const sub = eventBus.on('wiki/draft/saved', ({ changeId }) => {
-      const path = queuedPathsRef.current.shift();
-      if (path && changeId) onCreated?.(path, changeId);
+    const sub = eventBus.on('wiki/draft/saved', ({ changeId, spaceId: savedSpaceId, filePath: savedPath }) => {
+      if (savedSpaceId !== space.id || !queuedPathsRef.current.has(savedPath)) return;
+      queuedPathsRef.current.delete(savedPath);
+      if (changeId) onCreated?.(savedPath, changeId);
       completedSavesRef.current += 1;
       if (completedSavesRef.current >= expectedSavesRef.current) {
         setSubmitting(false);
@@ -110,7 +111,7 @@ export function CreateFileModal({
       sub.unsubscribe();
       errSub.unsubscribe();
     };
-  }, [isOpen, onClose, onCreated]);
+  }, [isOpen, onClose, onCreated, space.id]);
 
   if (!isOpen) return null;
 
@@ -122,7 +123,7 @@ export function CreateFileModal({
       setError(null);
       expectedSavesRef.current = 1;
       completedSavesRef.current = 0;
-      queuedPathsRef.current = [filePath];
+      queuedPathsRef.current = new Set([filePath]);
       saveDraft({
         spaceId: space.id,
         filePath,
@@ -139,7 +140,7 @@ export function CreateFileModal({
     setError(null);
     expectedSavesRef.current = uploads.length;
     completedSavesRef.current = 0;
-    queuedPathsRef.current = uploads.map((u) => u.path);
+    queuedPathsRef.current = new Set(uploads.map((u) => u.path));
     for (const u of uploads) {
       saveDraft({
         spaceId: space.id,

@@ -20,6 +20,7 @@ export interface PerformanceMetric {
 }
 
 const SLOW_THRESHOLD_MS = 1000;
+const MAX_METRICS = 500;
 const metrics: PerformanceMetric[] = [];
 
 /**
@@ -71,6 +72,7 @@ export async function trackPerformance<T>(
       }
     }
 
+    if (metrics.length >= MAX_METRICS) metrics.shift();
     metrics.push({
       operation,
       duration,
@@ -116,6 +118,7 @@ export function getSlowOperations(threshold = SLOW_THRESHOLD_MS): PerformanceMet
 
 export function pushMetric(metric: PerformanceMetric): void {
   if (!perfLogEnabled) return;
+  if (metrics.length >= MAX_METRICS) metrics.shift();
   metrics.push(metric);
 }
 

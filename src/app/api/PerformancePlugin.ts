@@ -17,28 +17,47 @@ interface PendingTiming {
 }
 
 /**
- * onResponse does not carry the original request context, so we correlate
- * via a FIFO queue. Each request pipeline calls onRequest → HTTP → onResponse
- * for the same request, and the framework processes them in order, so
- * shifting the oldest entry pairs correctly.
+ * onResponse does not carry the original request URL/method, so we inject
+ * a monotonic sequence id into a custom request header and read it back
+ * from the response headers. If the header is stripped or missing we fall
+ * back to best-effort FIFO.
  */
-const pendingQueue: PendingTiming[] = [];
+let nextSeqId = 1;
+const SEQ_HEADER = 'x-perf-seq';
+const pendingMap = new Map<number, PendingTiming>();
 
 export class PerformancePlugin extends RestPlugin {
   onRequest(
     context: RestRequestContext,
   ): RestRequestContext | RestShortCircuitResponse {
-    pendingQueue.push({
+    const id = nextSeqId++;
+    pendingMap.set(id, {
       method: context.method,
       url: context.url,
       start: performance.now(),
       timestamp: Date.now(),
     });
-    return context;
+    return {
+      ...context,
+      headers: { ...context.headers, [SEQ_HEADER]: String(id) },
+    };
   }
 
   onResponse(context: RestResponseContext): RestResponseContext {
-    const timing = pendingQueue.shift();
+    const seqRaw = context.headers?.[SEQ_HEADER];
+    let timing: PendingTiming | undefined;
+    if (seqRaw) {
+      const id = Number(seqRaw);
+      timing = pendingMap.get(id);
+      pendingMap.delete(id);
+    } else {
+      // Fallback: take the oldest entry (legacy FIFO).
+      const firstKey = pendingMap.keys().next().value;
+      if (firstKey !== undefined) {
+        timing = pendingMap.get(firstKey);
+        pendingMap.delete(firstKey);
+      }
+    }
     if (!timing) return context;
 
     const duration = performance.now() - timing.start;
