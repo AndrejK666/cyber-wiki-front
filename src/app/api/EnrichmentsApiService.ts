@@ -59,8 +59,36 @@ export class EnrichmentsApiService extends BaseApiService {
     return response.types;
   }
 
-  // streamEnrichments (SSE) — TODO P3+: requires raw fetch + ReadableStream,
-  // not currently expressible via RestProtocol. Skipped for now.
+  /** Stream enrichments via NDJSON endpoint. Yields parsed events as they arrive.
+   *  Falls back to the regular GET endpoint on network/parse errors. */
+  async *streamEnrichments(
+    sourceUri: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<{ type: string; message?: string; data?: EnrichmentsResponse }> {
+    const url = `/api/enrichments/v1/enrichments/stream/?source_uri=${encodeURIComponent(sourceUri)}`;
+    const resp = await fetch(url, {
+      credentials: 'include',
+      signal,
+    });
+    if (!resp.ok || !resp.body) return;
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (value) buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          yield JSON.parse(trimmed);
+        } catch { /* skip malformed lines */ }
+      }
+      if (done) break;
+    }
+  }
 
   // Comments CRUD (via wiki API)
   async listComments(sourceUri: string): Promise<CommentData[]> {

@@ -850,7 +850,10 @@
     "emptyHint": "There are no open PRs across the spaces you have access to.",
     "openSpace": "Open space",
     "openInProvider": "Open in Git provider",
-    "byAuthor": "by {author}"
+    "byAuthor": "by {author}",
+    "commentCount": "{count} comment",
+    "commentCount_plural": "{count} comments",
+    "viewComments": "View comments"
   },
   "spaces": {
     "title": "Spaces",

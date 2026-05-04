@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Filter,
   GitPullRequest,
+  MessageSquare,
   Search,
   User,
 } from 'lucide-react';
@@ -305,6 +306,18 @@ function PRsPage({ navigate }: PRsPageProps) {
                                 )}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
+                                {pr.comment_count != null && pr.comment_count > 0 && (
+                                  <a
+                                    href={pr.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-accent text-accent-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                                    title={t('prs.viewComments')}
+                                  >
+                                    <MessageSquare size={12} />
+                                    <span>{pr.comment_count}</span>
+                                  </a>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => handleOpenSpace(group.spaceSlug)}

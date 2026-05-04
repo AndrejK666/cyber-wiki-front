@@ -473,6 +473,7 @@ export type MyReviewPR = {
   merged: boolean;
   from_branch?: string;
   reviewers: PRReviewer[];
+  comment_count?: number;
 };
 
 export type MyReviewsResponse = {
