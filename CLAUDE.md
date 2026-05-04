@@ -1,5 +1,5 @@
 # CLAUDE.md
 
-Use `.ai/GUIDELINES.md` as the single source of truth for FrontX development guidelines.
+Use `.ai/rules/cyberwiki-front.md` as the single source of truth for CyberWiki frontend rules.
 
-For routing to specific topics, see the ROUTING section in GUIDELINES.md.
+For the review-and-commit command, see `.ai/commands/review-and-commit.md`.

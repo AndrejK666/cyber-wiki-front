@@ -11,6 +11,7 @@
  */
 
 import { Fragment, useState, type ReactNode } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import { ChevronDown, ChevronRight, File, Folder } from 'lucide-react';
 import { TreeNodeType, type TreeNode } from '@/app/api';
 
@@ -144,6 +145,7 @@ export function FileTree({
   onSelectFile,
   onToggleFolder,
 }: FileTreeProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(initiallyExpandedPaths ?? []),
   );
@@ -164,7 +166,7 @@ export function FileTree({
 
   if (tree.length === 0) {
     return (
-      <div className="px-4 py-2 text-sm text-muted-foreground">No files</div>
+      <div className="px-4 py-2 text-sm text-muted-foreground">{t('fileTree.empty')}</div>
     );
   }
 

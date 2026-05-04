@@ -8,6 +8,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import { Pencil, GitCommit, AlertTriangle, MessageSquare } from 'lucide-react';
 import {
   DiffType,
@@ -78,6 +79,7 @@ function PlainTextContentRenderer({
   isEditMode,
   onLineContentChange,
 }: PlainTextContentRendererProps) {
+  const { t } = useTranslation();
   const [hoveredLine, setHoveredLine] = useState<number | null>(null);
   const [conflictDialog, setConflictDialog] = useState<{
     conflicts: Enrichment[];
@@ -174,7 +176,7 @@ function PlainTextContentRenderer({
               {firstLineConflicts.length > 0 && (
                 <button
                   className="inline-flex items-center justify-center gap-0.5 rounded border border-destructive bg-destructive/10 text-destructive min-w-[1.375rem] h-[1.375rem] text-[0.6875rem] font-semibold"
-                  title={`${firstLineConflicts.length} conflict${firstLineConflicts.length > 1 ? 's' : ''} — click to review`}
+                  title={t(firstLineConflicts.length === 1 ? 'plainText.conflictsTitle' : 'plainText.conflictsTitle_plural', { count: firstLineConflicts.length })}
                   onClick={(e) => {
                     e.stopPropagation();
                     setConflictDialog({ conflicts: firstLineConflicts, initialIndex: 0 });
@@ -194,7 +196,7 @@ function PlainTextContentRenderer({
                       : 'bg-green-100 border-green-400 text-green-800 dark:bg-green-950/30 dark:border-green-600 dark:text-green-300'
                   }`}
                 >
-                  PR #{vLine.prNumber}
+                  {t('prBanner.prNumber', { number: vLine.prNumber ?? 0 })}
                 </span>
               )}
 
@@ -202,7 +204,7 @@ function PlainTextContentRenderer({
               {showCommitBadge && (
                 <span
                   className="inline-flex items-center justify-center rounded border border-violet-400 bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:border-violet-600 dark:text-violet-300 w-[1.375rem] h-[1.375rem]"
-                  title="Committed to branch"
+                  title={t('plainText.committedToBranchTitle')}
                 >
                   <GitCommit size={12} />
                 </span>
@@ -212,7 +214,7 @@ function PlainTextContentRenderer({
               {showEditBadge && (
                 <button
                   className="inline-flex items-center justify-center rounded border border-blue-400 bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:border-blue-600 dark:text-blue-300 w-[1.375rem] h-[1.375rem]"
-                  title="Your draft change — click to view in Changes tab"
+                  title={t('plainText.yourDraftTitle')}
                   onClick={(e) => {
                     e.stopPropagation();
                     onEnrichmentClick?.({

@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import { Check, ChevronDown, ChevronRight, X } from 'lucide-react';
 import type { DiffEnrichment, DiffHunk } from '@/app/api';
 
@@ -41,6 +42,7 @@ interface DiffViewerProps {
 }
 
 export function DiffViewer({ diff, fileName, onAccept, onReject }: DiffViewerProps) {
+  const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<DiffViewMode>(DiffViewMode.Unified);
   const [expandedHunks, setExpandedHunks] = useState<Set<number>>(new Set([0]));
 
@@ -81,14 +83,14 @@ export function DiffViewer({ diff, fileName, onAccept, onReject }: DiffViewerPro
               onClick={() => setViewMode(DiffViewMode.Unified)}
               className={`px-3 py-1 text-xs ${viewMode === DiffViewMode.Unified ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent/50'}`}
             >
-              Unified
+              {t('diffViewer.viewUnified')}
             </button>
             <button
               type="button"
               onClick={() => setViewMode(DiffViewMode.Split)}
               className={`px-3 py-1 text-xs border-l border-border ${viewMode === DiffViewMode.Split ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent/50'}`}
             >
-              Split
+              {t('diffViewer.viewSplit')}
             </button>
           </div>
 
@@ -97,14 +99,14 @@ export function DiffViewer({ diff, fileName, onAccept, onReject }: DiffViewerPro
             onClick={() => setExpandedHunks(new Set(diff.diff_hunks.map((_, i) => i)))}
             className="px-2 py-1 text-xs text-muted-foreground hover:opacity-80"
           >
-            Expand All
+            {t('diffViewer.expandAll')}
           </button>
           <button
             type="button"
             onClick={() => setExpandedHunks(new Set())}
             className="px-2 py-1 text-xs text-muted-foreground hover:opacity-80"
           >
-            Collapse All
+            {t('diffViewer.collapseAll')}
           </button>
 
           {onAccept && (
@@ -114,7 +116,7 @@ export function DiffViewer({ diff, fileName, onAccept, onReject }: DiffViewerPro
               className="flex items-center gap-1 px-3 py-1.5 text-sm rounded bg-green-600 text-white hover:bg-green-700"
             >
               <Check size={16} />
-              Accept
+              {t('diffViewer.accept')}
             </button>
           )}
           {onReject && (
@@ -124,7 +126,7 @@ export function DiffViewer({ diff, fileName, onAccept, onReject }: DiffViewerPro
               className="flex items-center gap-1 px-3 py-1.5 text-sm rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               <X size={16} />
-              Reject
+              {t('diffViewer.reject')}
             </button>
           )}
         </div>
@@ -156,6 +158,7 @@ interface DiffHunkViewProps {
 }
 
 function DiffHunkView({ hunk, index, isExpanded, viewMode, onToggle }: DiffHunkViewProps) {
+  const { t } = useTranslation();
   return (
     <div className="border-b border-border">
       <button
@@ -168,7 +171,7 @@ function DiffHunkView({ hunk, index, isExpanded, viewMode, onToggle }: DiffHunkV
           @@ -{hunk.old_start},{hunk.old_count} +{hunk.new_start},{hunk.new_count} @@
         </span>
         <span className="text-xs ml-2">
-          Hunk {index + 1} ({hunk.lines.length} lines)
+          {t('diffViewer.hunkLabel', { index: index + 1, lines: hunk.lines.length })}
         </span>
       </button>
 

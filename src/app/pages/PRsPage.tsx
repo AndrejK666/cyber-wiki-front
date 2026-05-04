@@ -4,7 +4,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
+import { lowerCase, trim } from 'lodash';
 import {
   AlertCircle,
   Check,
@@ -20,6 +21,7 @@ import {
 import { loadPullRequests } from '@/app/actions/wikiActions';
 import { PageTitle } from '@/app/layout';
 import { Urls, type MyReviewPR, type PRReviewer } from '@/app/api';
+import { formatDate } from '@/app/lib/formatDate';
 
 interface PRsPageProps {
   navigate: (view: string) => void;
@@ -69,7 +71,6 @@ function ReviewerChip({ reviewer }: { reviewer: PRReviewer }) {
   );
 }
 
-/** Collect unique author usernames from PRs. */
 function collectAuthors(prs: MyReviewPR[]): string[] {
   const set = new Set<string>();
   for (const pr of prs) {
@@ -78,7 +79,6 @@ function collectAuthors(prs: MyReviewPR[]): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-/** Collect unique reviewer usernames from PRs. */
 function collectReviewers(prs: MyReviewPR[]): string[] {
   const set = new Set<string>();
   for (const pr of prs) {
@@ -90,6 +90,7 @@ function collectReviewers(prs: MyReviewPR[]): string[] {
 }
 
 function PRsPage({ navigate }: PRsPageProps) {
+  const { t } = useTranslation();
   const [prs, setPrs] = useState<MyReviewPR[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +108,6 @@ function PRsPage({ navigate }: PRsPageProps) {
       setPrs(pullRequests);
       setCurrentGitUsernames(usernames);
       setLoading(false);
-      // Expand all groups by default
       const slugs = new Set(pullRequests.map((pr) => pr.space_slug));
       setExpandedGroups(slugs);
     });
@@ -128,12 +128,12 @@ function PRsPage({ navigate }: PRsPageProps) {
   const reviewers = useMemo(() => collectReviewers(prs), [prs]);
 
   const groups = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = lowerCase(trim(search));
     const filtered = prs.filter((pr) => {
       if (authorFilter !== 'all' && pr.author !== authorFilter) return false;
       if (reviewerFilter === 'me') {
-        const meSet = new Set(currentGitUsernames.map((u) => u.toLowerCase()));
-        const hasMe = pr.reviewers.some((r) => meSet.has(r.username.toLowerCase()));
+        const meSet = new Set(currentGitUsernames.map((u) => lowerCase(u)));
+        const hasMe = pr.reviewers.some((r) => meSet.has(lowerCase(r.username)));
         if (!hasMe) return false;
       } else if (reviewerFilter !== 'all') {
         const hasReviewer = pr.reviewers.some((r) => r.username === reviewerFilter);
@@ -141,10 +141,10 @@ function PRsPage({ navigate }: PRsPageProps) {
       }
       if (q) {
         const match =
-          pr.title.toLowerCase().includes(q) ||
-          pr.author.toLowerCase().includes(q) ||
-          pr.space_slug.toLowerCase().includes(q) ||
-          pr.space_name.toLowerCase().includes(q) ||
+          lowerCase(pr.title).includes(q) ||
+          lowerCase(pr.author).includes(q) ||
+          lowerCase(pr.space_slug).includes(q) ||
+          lowerCase(pr.space_name).includes(q) ||
           String(pr.number).includes(q);
         if (!match) return false;
       }
@@ -169,33 +169,35 @@ function PRsPage({ navigate }: PRsPageProps) {
     navigate(`${Urls.Spaces}?space=${spaceSlug}`);
   };
 
+  const totalLabelKey = total === 1 ? 'prs.totalLabel' : 'prs.totalLabel_plural';
+
   return (
     <div className="h-full overflow-auto">
-      <PageTitle title="Pull Requests" subtitle="Open pull requests across the spaces you have access to." />
+      <PageTitle title={t('prs.title')} subtitle={t('prs.subtitle')} />
       <div className="max-w-7xl p-6 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title, author, space, or PR number..."
+              aria-label={t('prs.searchPlaceholder')}
+              placeholder={t('prs.searchPlaceholder')}
               className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
-          {/* Filters */}
           <div className="flex items-center gap-2 flex-wrap">
             <Filter size={14} className="text-muted-foreground" />
             <select
               value={authorFilter}
               onChange={(e) => setAuthorFilter(e.target.value)}
               className="px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
-              title="Filter by author"
+              aria-label={t('prs.filterAuthor')}
+              title={t('prs.filterAuthor')}
             >
-              <option value="all">All authors</option>
+              <option value="all">{t('prs.authorAll')}</option>
               {authors.map((a) => (
                 <option key={a} value={a}>
                   {a}
@@ -206,10 +208,11 @@ function PRsPage({ navigate }: PRsPageProps) {
               value={reviewerFilter}
               onChange={(e) => setReviewerFilter(e.target.value)}
               className="px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
-              title="Filter by reviewer"
+              aria-label={t('prs.filterReviewer')}
+              title={t('prs.filterReviewer')}
             >
-              <option value="me">My reviews</option>
-              <option value="all">All reviewers</option>
+              <option value="me">{t('prs.reviewerMine')}</option>
+              <option value="all">{t('prs.reviewerAll')}</option>
               {reviewers.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -220,7 +223,7 @@ function PRsPage({ navigate }: PRsPageProps) {
         </div>
 
         {loading && (
-          <div className="text-sm text-muted-foreground py-8 text-center">Loading...</div>
+          <div className="text-sm text-muted-foreground py-8 text-center">{t('common.loading')}</div>
         )}
 
         {error && !loading && (
@@ -233,10 +236,8 @@ function PRsPage({ navigate }: PRsPageProps) {
         {!loading && !error && total === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <GitPullRequest size={48} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No open pull requests.</p>
-            <p className="text-xs mt-1">
-              There are no open PRs across the spaces you have access to.
-            </p>
+            <p className="text-sm">{t('prs.emptyTitle')}</p>
+            <p className="text-xs mt-1">{t('prs.emptyHint')}</p>
           </div>
         )}
 
@@ -244,8 +245,8 @@ function PRsPage({ navigate }: PRsPageProps) {
           <>
             <div className="text-xs text-muted-foreground">
               {filteredTotal === total
-                ? `${total} open PR${total === 1 ? '' : 's'}`
-                : `${filteredTotal} of ${total} shown`}
+                ? t(totalLabelKey, { count: total })
+                : t('prs.shownLabel', { shown: filteredTotal, total })}
             </div>
 
             <div className="space-y-2">
@@ -291,9 +292,9 @@ function PRsPage({ navigate }: PRsPageProps) {
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                                  <span>by {pr.author}</span>
+                                  <span>{t('prs.byAuthor', { author: pr.author })}</span>
                                   {pr.from_branch && <span>· {pr.from_branch}</span>}
-                                  <span>· {new Date(pr.created_at).toLocaleDateString()}</span>
+                                  <span>· {formatDate(pr.created_at)}</span>
                                 </div>
                                 {pr.reviewers.length > 0 && (
                                   <div className="flex flex-wrap gap-1.5 mt-2">
@@ -308,9 +309,9 @@ function PRsPage({ navigate }: PRsPageProps) {
                                   type="button"
                                   onClick={() => handleOpenSpace(group.spaceSlug)}
                                   className="text-xs text-primary hover:underline"
-                                  title="Open space"
+                                  title={t('prs.openSpace')}
                                 >
-                                  Open space
+                                  {t('prs.openSpace')}
                                 </button>
                                 {pr.url && (
                                   <a
@@ -318,7 +319,7 @@ function PRsPage({ navigate }: PRsPageProps) {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-                                    title="Open in Git provider"
+                                    title={t('prs.openInProvider')}
                                   >
                                     <ExternalLink size={14} />
                                   </a>

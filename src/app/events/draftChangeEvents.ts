@@ -10,6 +10,7 @@ import type {
   DraftChange,
   DraftChangeListItem,
   EditChangeType,
+  PRStatus,
 } from '@/app/api';
 
 declare module '@cyberfabric/react' {
@@ -33,8 +34,15 @@ declare module '@cyberfabric/react' {
       changeType: EditChangeType;
       description: string;
     };
-    /** Draft saved */
-    'wiki/draft/saved': { changeId: string; created: boolean };
+    /** Draft saved. spaceId and filePath echo the request so subscribers can
+     *  optimistically update per-space state without waiting for a follow-up
+     *  loadDrafts round-trip (which the FileViewer's Commit button needs). */
+    'wiki/draft/saved': {
+      changeId: string;
+      created: boolean;
+      spaceId: string;
+      filePath: string;
+    };
 
     /** Discard a draft change */
     'wiki/draft/discard': { changeId: string };
@@ -50,6 +58,13 @@ declare module '@cyberfabric/react' {
       filesCommitted: number;
       spaceId: string;
       spaceSlug: string;
+      /** Populated when the commit also auto-opened (or returned the existing)
+       *  PR for the branch. Null when no PR was created. */
+      pr?: { prId: string; prUrl: string } | null;
+      /** Reason the auto-PR step was skipped/failed. Null when none. */
+      prError?: string | null;
+      /** PR-stage outcome — see CommitDraftChangesResult.pr_status. */
+      prStatus?: PRStatus;
     };
 
     /** Draft operation error */

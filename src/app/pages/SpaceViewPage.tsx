@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
 import {
   FolderOpen,
   File,
@@ -61,6 +61,7 @@ interface SpaceViewPageProps {
 }
 
 const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
+  const { t } = useTranslation();
   const [allSpaces, setAllSpaces] = useState<Space[]>([]);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [tree, setTree] = useState<TreeNode[]>([]);
@@ -92,6 +93,10 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
   const [overrideSourceUri, setOverrideSourceUri] = useState<string | null>(null);
   /** Maps file_path → draft_id for the current space (pending drafts). */
   const [draftsByPath, setDraftsByPath] = useState<Map<string, string>>(new Map());
+  /** False until the first wiki/drafts/loaded event for the current space.
+   *  Lets FileViewer suppress "Resource not found" while we still don't know
+   *  whether the deep-linked file is a created-as-draft path. */
+  const [draftsLoaded, setDraftsLoaded] = useState(false);
   /** Convenience set of paths with pending drafts (drives tree dot + header badge). */
   const draftPaths = useMemo(() => new Set(draftsByPath.keys()), [draftsByPath]);
 
@@ -205,22 +210,52 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
   useEffect(() => {
     if (!selectedSpace) {
       setDraftsByPath(new Map());
+      setDraftsLoaded(false);
       return undefined;
     }
+    setDraftsLoaded(false);
     const sub = eventBus.on('wiki/drafts/loaded', ({ drafts: list, spaceId }) => {
       // Effect echoes back the requested space; ignore unrelated payloads.
       if (spaceId && spaceId !== selectedSpace.id) return;
       setDraftsByPath(new Map(list.map((d) => [d.file_path, d.id])));
+      setDraftsLoaded(true);
     });
+    // If the drafts listing fails (auth, network, backend down), don't strand
+    // the FileViewer on a forever-spinner: flip `draftsLoaded` so the real
+    // file-fetch error (or actual content) gets shown.
+    const errSub = eventBus.on('wiki/draft/error', () => {
+      setDraftsLoaded(true);
+    });
+    // Safety net for the case where the listing never completes (request
+    // hangs, route never returns). 5s is generous enough for a healthy API
+    // and short enough that the user isn't staring at a blank spinner.
+    const timeoutId = setTimeout(() => setDraftsLoaded(true), 5000);
     const refresh = () => loadDrafts(selectedSpace.id);
+    // Optimistic Commit-button: insert the freshly-saved draft into the
+    // path → id map immediately so FileViewer's Commit/diff UI lights up
+    // without waiting for the follow-up loadDrafts round-trip. The refresh
+    // below still reconciles the map with the authoritative server state.
+    const savedSub = eventBus.on('wiki/draft/saved', ({ changeId, spaceId, filePath }) => {
+      if (spaceId === selectedSpace.id) {
+        setDraftsByPath((prev) => {
+          if (prev.get(filePath) === changeId) return prev;
+          const next = new Map(prev);
+          next.set(filePath, changeId);
+          return next;
+        });
+      }
+      refresh();
+    });
     const refreshSubs = [
-      eventBus.on('wiki/draft/saved', refresh),
+      savedSub,
       eventBus.on('wiki/draft/discarded', refresh),
       eventBus.on('wiki/draft/committed', refresh),
     ];
     refresh();
     return () => {
+      clearTimeout(timeoutId);
       sub.unsubscribe();
+      errSub.unsubscribe();
       refreshSubs.forEach((s) => s.unsubscribe());
     };
   }, [selectedSpace]);
@@ -363,8 +398,11 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
         const n = Number(lineParam);
         setSelectedLines({ start: n, end: n });
         setShowEnrichments(true);
-      } else if (urlParams.get('comments') === '1') {
-        setShowEnrichments(true);
+      } else {
+        setSelectedLines(null);
+        if (urlParams.get('comments') === '1') {
+          setShowEnrichments(true);
+        }
       }
     };
     window.addEventListener('hashchange', handleHashChange);
@@ -441,13 +479,13 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
   if (!selectedSpace) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-background text-muted-foreground gap-4">
-        <p className="text-lg">No space selected</p>
+        <p className="text-lg">{t('spaceView.noSpaceSelected')}</p>
         <button
           onClick={() => navigate(Urls.Spaces)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90"
         >
           <ArrowLeft size={16} />
-          Browse Spaces
+          {t('spaceView.browseSpaces')}
         </button>
       </div>
     );
@@ -467,14 +505,14 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
             <button
               onClick={() => handleViewModeChange(ViewMode.Documents)}
               className={`p-1 rounded transition-colors ${viewMode === ViewMode.Documents ? 'bg-card text-foreground' : 'text-muted-foreground'}`}
-              title="Render — show display names from file mapping"
+              title={t('spaceView.tree.viewRender')}
             >
               <Eye className="w-3 h-3" />
             </button>
             <button
               onClick={() => handleViewModeChange(ViewMode.Dev)}
               className={`p-1 rounded transition-colors ${viewMode === ViewMode.Dev ? 'bg-card text-foreground' : 'text-muted-foreground'}`}
-              title="Raw — show real filenames"
+              title={t('spaceView.tree.viewRaw')}
             >
               <Code className="w-3 h-3" />
             </button>
@@ -482,14 +520,14 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
           <button
             onClick={handleToggleExpandAll}
             className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground flex-shrink-0"
-            title={allExpanded ? 'Collapse all' : 'Expand all'}
+            title={allExpanded ? t('spaceView.tree.collapseAll') : t('spaceView.tree.expandAll')}
           >
             {allExpanded ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
           </button>
           <button
             onClick={() => setShowCreateFile(true)}
             className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground flex-shrink-0"
-            title="Add file — create a new file in this repository"
+            title={t('spaceView.tree.addFile')}
           >
             <FilePlus size={14} />
           </button>
@@ -509,7 +547,7 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
             </div>
           )}
           {!treeLoading && !treeError && tree.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">No files found</p>
+            <p className="text-sm text-muted-foreground text-center py-8">{t('spaceView.tree.noFiles')}</p>
           )}
           {!treeLoading &&
             tree.map((node) => (
@@ -537,6 +575,7 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
             spaceSlug={selectedSpace.slug}
             spaceId={selectedSpace.id}
             spaceName={selectedSpace.name}
+            space={selectedSpace}
             filePath={selectedFilePath}
             onBack={() => setSelectedFilePath(null)}
             showComments={showEnrichments}
@@ -546,6 +585,7 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
             commentsCount={commentsCount}
             hasUnsavedDraft={selectedFilePath ? draftPaths.has(selectedFilePath) : false}
             draftId={selectedFilePath ? draftsByPath.get(selectedFilePath) : undefined}
+            draftsLoaded={draftsLoaded}
             commentLines={commentLines}
             showTree={showTree}
             onToggleTree={() => setShowTree((v) => !v)}
@@ -568,9 +608,9 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center text-center px-8 py-12 text-muted-foreground">
             <FileText size={56} strokeWidth={1.5} className="mb-4 opacity-30" />
-            <p className="text-base font-semibold text-foreground">Select a document</p>
+            <p className="text-base font-semibold text-foreground">{t('spaceView.selectDocumentTitle')}</p>
             <p className="text-sm mt-1 max-w-xs">
-              Pick any file from the tree on the left to view or edit its contents.
+              {t('spaceView.selectDocumentHint')}
             </p>
           </div>
         )}
@@ -584,12 +624,12 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
           <div className="px-3 py-1.5 flex items-center justify-between border-b border-border">
             <div className="flex items-center gap-2">
               <Layers size={14} className="text-muted-foreground" />
-              <span className="text-xs font-semibold uppercase text-muted-foreground">Enrichments</span>
+              <span className="text-xs font-semibold uppercase text-muted-foreground">{t('spaceView.enrichments')}</span>
             </div>
             <button
               onClick={() => setShowEnrichments(false)}
               className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground"
-              title="Close panel"
+              title={t('spaceView.closePanel')}
             >
               <PanelRightClose size={14} />
             </button>
@@ -599,6 +639,7 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
               sourceUri={overrideSourceUri || buildSourceUri(selectedSpace, selectedFilePath)}
               selectedLines={selectedLines}
               spaceId={selectedSpace.id}
+              spaceSlug={selectedSpace.slug}
               currentFilePath={selectedFilePath}
             />
           </div>
@@ -651,6 +692,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   draftPaths,
   onSelect,
 }) => {
+  const { t } = useTranslation();
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = node.path === selectedPath;
   const isDir = node.type === 'dir';
@@ -690,8 +732,8 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         {hasDraft && (
           <span
             className="flex-shrink-0 inline-block w-2 h-2 rounded-full bg-yellow-500"
-            title="Has unsaved changes"
-            aria-label="Has unsaved changes"
+            title={t('spaceView.tree.draftMarker')}
+            aria-label={t('spaceView.tree.draftMarker')}
           />
         )}
       </button>

@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import {
   Editor,
   defaultValueCtx,
@@ -102,6 +103,7 @@ type EditorAction = (ctx: Ctx) => boolean;
 
 /** Top toolbar for the WYSIWYG editor: format / headings / lists / insert. */
 function MdToolbar() {
+  const { t } = useTranslation();
   const [loading, getEditor] = useInstance();
 
   const exec = (action: EditorAction) => {
@@ -176,16 +178,16 @@ function MdToolbar() {
 
   return (
     <div className="flex items-center gap-0.5 border-b border-border bg-muted px-3 py-1">
-      <Btn title="Bold (⌘B)" onClick={() => exec(callCommand(toggleStrongCommand.key))}>
+      <Btn title={t('mdRenderer.boldTitle')} onClick={() => exec(callCommand(toggleStrongCommand.key))}>
         <Bold size={14} />
       </Btn>
-      <Btn title="Italic (⌘I)" onClick={() => exec(callCommand(toggleEmphasisCommand.key))}>
+      <Btn title={t('mdRenderer.italicTitle')} onClick={() => exec(callCommand(toggleEmphasisCommand.key))}>
         <Italic size={14} />
       </Btn>
-      <Btn title="Strikethrough" onClick={() => exec(callCommand(toggleStrikethroughCommand.key))}>
+      <Btn title={t('mdRenderer.strikethroughTitle')} onClick={() => exec(callCommand(toggleStrikethroughCommand.key))}>
         <Strikethrough size={14} />
       </Btn>
-      <Btn title="Inline code (⌘E)" onClick={() => exec(callCommand(toggleInlineCodeCommand.key))}>
+      <Btn title={t('mdRenderer.inlineCodeTitle')} onClick={() => exec(callCommand(toggleInlineCodeCommand.key))}>
         <CodeIcon size={14} />
       </Btn>
 
@@ -196,7 +198,7 @@ function MdToolbar() {
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            title="Headings"
+            title={t('mdRenderer.headingsTitle')}
             className="inline-flex h-7 items-center gap-1 rounded px-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <Type size={14} />
@@ -204,24 +206,24 @@ function MdToolbar() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-40">
           <DropdownMenuItem onSelect={() => exec(callCommand(wrapInHeadingCommand.key, 1))}>
-            <Heading1 className="mr-2 h-4 w-4" /> Heading 1
+            <Heading1 className="mr-2 h-4 w-4" /> {t('mdRenderer.heading1')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => exec(callCommand(wrapInHeadingCommand.key, 2))}>
-            <Heading2 className="mr-2 h-4 w-4" /> Heading 2
+            <Heading2 className="mr-2 h-4 w-4" /> {t('mdRenderer.heading2')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => exec(callCommand(wrapInHeadingCommand.key, 3))}>
-            <Heading3 className="mr-2 h-4 w-4" /> Heading 3
+            <Heading3 className="mr-2 h-4 w-4" /> {t('mdRenderer.heading3')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Btn title="Bullet list" onClick={() => exec(callCommand(wrapInBulletListCommand.key))}>
+      <Btn title={t('mdRenderer.bulletListTitle')} onClick={() => exec(callCommand(wrapInBulletListCommand.key))}>
         <List size={14} />
       </Btn>
-      <Btn title="Ordered list" onClick={() => exec(callCommand(wrapInOrderedListCommand.key))}>
+      <Btn title={t('mdRenderer.orderedListTitle')} onClick={() => exec(callCommand(wrapInOrderedListCommand.key))}>
         <ListOrdered size={14} />
       </Btn>
-      <Btn title="Quote" onClick={() => exec(callCommand(wrapInBlockquoteCommand.key))}>
+      <Btn title={t('mdRenderer.quoteTitle')} onClick={() => exec(callCommand(wrapInBlockquoteCommand.key))}>
         <Quote size={14} />
       </Btn>
 
@@ -233,40 +235,40 @@ function MdToolbar() {
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            title="Insert"
+            title={t('mdRenderer.insertTitle')}
             className="inline-flex h-7 items-center gap-1 rounded px-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <Plus size={14} />
-            <span className="text-xs">Insert</span>
+            <span className="text-xs">{t('mdRenderer.insertLabel')}</span>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-48">
           <DropdownMenuItem onSelect={insertCodeBlock}>
-            <CodeIcon className="mr-2 h-4 w-4" /> Code block
+            <CodeIcon className="mr-2 h-4 w-4" /> {t('mdRenderer.codeBlock')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={insertTable}>
-            <TableIcon className="mr-2 h-4 w-4" /> Table
+            <TableIcon className="mr-2 h-4 w-4" /> {t('mdRenderer.table')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={insertLink}>
-            <LinkIcon className="mr-2 h-4 w-4" /> Link
+            <LinkIcon className="mr-2 h-4 w-4" /> {t('mdRenderer.link')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={insertImage}>
-            <ImageIcon className="mr-2 h-4 w-4" /> Image
+            <ImageIcon className="mr-2 h-4 w-4" /> {t('mdRenderer.image')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={insertTask}>
-            <CheckSquare className="mr-2 h-4 w-4" /> Task list item
+            <CheckSquare className="mr-2 h-4 w-4" /> {t('mdRenderer.taskList')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={insertDate}>
-            <Calendar className="mr-2 h-4 w-4" /> Today&apos;s date
+            <Calendar className="mr-2 h-4 w-4" /> {t('mdRenderer.todayDate')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={insertMention}>
-            <AtSign className="mr-2 h-4 w-4" /> Mention
+            <AtSign className="mr-2 h-4 w-4" /> {t('mdRenderer.mention')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={insertJiraBadge}>
-            <Tag className="mr-2 h-4 w-4" /> JIRA badge
+            <Tag className="mr-2 h-4 w-4" /> {t('mdRenderer.jiraBadge')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => exec(callCommand(insertHrCommand.key))}>
-            <Minus className="mr-2 h-4 w-4" /> Horizontal rule
+            <Minus className="mr-2 h-4 w-4" /> {t('mdRenderer.horizontalRule')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -276,6 +278,7 @@ function MdToolbar() {
 
 /** Right-click menu over the editor area: format / paragraph / clipboard. */
 function MdRightClickMenu({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [loading, getEditor] = useInstance();
 
   const focusEditor = useCallback(() => {
@@ -406,28 +409,28 @@ function MdRightClickMenu({ children }: { children: ReactNode }) {
         <ContextMenuSub>
           <ContextMenuSubTrigger>
             <Type className="mr-2 h-4 w-4" />
-            Format
+            {t('mdRenderer.format')}
           </ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-48">
             <ContextMenuItem onSelect={() => exec(callCommand(toggleStrongCommand.key))}>
               <Bold className="mr-2 h-4 w-4" />
-              Bold
+              {t('mdRenderer.bold')}
               <ContextMenuShortcut>⌘B</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => exec(callCommand(toggleEmphasisCommand.key))}>
               <Italic className="mr-2 h-4 w-4" />
-              Italic
+              {t('mdRenderer.italic')}
               <ContextMenuShortcut>⌘I</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem
               onSelect={() => exec(callCommand(toggleStrikethroughCommand.key))}
             >
               <Strikethrough className="mr-2 h-4 w-4" />
-              Strikethrough
+              {t('mdRenderer.strikethrough')}
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => exec(callCommand(toggleInlineCodeCommand.key))}>
               <CodeIcon className="mr-2 h-4 w-4" />
-              Inline code
+              {t('mdRenderer.inlineCode')}
               <ContextMenuShortcut>⌘E</ContextMenuShortcut>
             </ContextMenuItem>
           </ContextMenuSubContent>
@@ -436,27 +439,27 @@ function MdRightClickMenu({ children }: { children: ReactNode }) {
         <ContextMenuSub>
           <ContextMenuSubTrigger>
             <Pilcrow className="mr-2 h-4 w-4" />
-            Paragraph
+            {t('mdRenderer.paragraph')}
           </ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-48">
             <ContextMenuItem onSelect={() => exec(callCommand(wrapInHeadingCommand.key, 1))}>
-              <Heading1 className="mr-2 h-4 w-4" /> Heading 1
+              <Heading1 className="mr-2 h-4 w-4" /> {t('mdRenderer.heading1')}
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => exec(callCommand(wrapInHeadingCommand.key, 2))}>
-              <Heading2 className="mr-2 h-4 w-4" /> Heading 2
+              <Heading2 className="mr-2 h-4 w-4" /> {t('mdRenderer.heading2')}
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => exec(callCommand(wrapInHeadingCommand.key, 3))}>
-              <Heading3 className="mr-2 h-4 w-4" /> Heading 3
+              <Heading3 className="mr-2 h-4 w-4" /> {t('mdRenderer.heading3')}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={() => exec(callCommand(wrapInBulletListCommand.key))}>
-              <List className="mr-2 h-4 w-4" /> Bullet list
+              <List className="mr-2 h-4 w-4" /> {t('mdRenderer.bulletList')}
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => exec(callCommand(wrapInOrderedListCommand.key))}>
-              <ListOrdered className="mr-2 h-4 w-4" /> Ordered list
+              <ListOrdered className="mr-2 h-4 w-4" /> {t('mdRenderer.orderedList')}
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => exec(callCommand(wrapInBlockquoteCommand.key))}>
-              <Quote className="mr-2 h-4 w-4" /> Quote
+              <Quote className="mr-2 h-4 w-4" /> {t('mdRenderer.quote')}
             </ContextMenuItem>
           </ContextMenuSubContent>
         </ContextMenuSub>
@@ -464,11 +467,11 @@ function MdRightClickMenu({ children }: { children: ReactNode }) {
         <ContextMenuSub>
           <ContextMenuSubTrigger>
             <Plus className="mr-2 h-4 w-4" />
-            Insert
+            {t('mdRenderer.insertLabel')}
           </ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-48">
             <ContextMenuItem onSelect={() => exec(callCommand(insertHrCommand.key))}>
-              <Minus className="mr-2 h-4 w-4" /> Horizontal rule
+              <Minus className="mr-2 h-4 w-4" /> {t('mdRenderer.horizontalRule')}
             </ContextMenuItem>
           </ContextMenuSubContent>
         </ContextMenuSub>
@@ -477,17 +480,17 @@ function MdRightClickMenu({ children }: { children: ReactNode }) {
 
         <ContextMenuItem onSelect={handleCut}>
           <Scissors className="mr-2 h-4 w-4" />
-          Cut
+          {t('mdRenderer.cut')}
           <ContextMenuShortcut>⌘X</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem onSelect={handleCopy}>
           <Copy className="mr-2 h-4 w-4" />
-          Copy
+          {t('mdRenderer.copy')}
           <ContextMenuShortcut>⌘C</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem onSelect={handlePaste}>
           <ClipboardPaste className="mr-2 h-4 w-4" />
-          Paste
+          {t('mdRenderer.paste')}
           <ContextMenuShortcut>⌘V</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
@@ -502,6 +505,7 @@ function MdLoaded({
   isSourceMode,
   onChange,
 }: MdRendererProps) {
+  const { t } = useTranslation();
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -570,7 +574,7 @@ function MdLoaded({
   if (editorInfo.loading) {
     body = (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Loading editor…
+        {t('mdRenderer.loading')}
       </div>
     );
   } else if (isSourceMode) {
@@ -614,12 +618,12 @@ function MdLoaded({
       {!editorInfo.loading && (
         <div className="flex items-center justify-between border-t border-border px-4 py-1.5 text-xs text-muted-foreground bg-muted">
           <div className="flex items-center gap-3">
-            <span>{stats.words} words</span>
-            <span>{stats.chars} chars</span>
-            <span>{stats.lines} lines</span>
+            <span>{t('mdRenderer.stats.words', { count: stats.words })}</span>
+            <span>{t('mdRenderer.stats.chars', { count: stats.chars })}</span>
+            <span>{t('mdRenderer.stats.lines', { count: stats.lines })}</span>
           </div>
           <span className="text-[0.625rem] uppercase tracking-wider opacity-60">
-            Milkdown
+            {t('mdRenderer.engineLabel')}
           </span>
         </div>
       )}

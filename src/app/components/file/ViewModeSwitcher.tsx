@@ -2,33 +2,32 @@
  * ViewModeSwitcher — toggle for FileViewMode (Preview / Source / Visual).
  *
  * Per FR cpt-cyberwiki-fr-live-edit (raw vs WYSIWYG-style toggle).
- * Inspired by doclab components/main-view/content/ViewModeSwitcher.tsx,
- * adapted to the host's `FileViewMode` enum.
  */
 
+import { useTranslation } from '@cyberfabric/react';
 import { FileViewMode } from '@/app/api';
 
 interface ViewModeOption {
   id: FileViewMode;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
 }
 
 const VIEW_MODE_OPTIONS: ViewModeOption[] = [
   {
     id: FileViewMode.Preview,
-    label: 'Preview',
-    description: 'Rendered content (Markdown, etc.)',
+    labelKey: 'viewMode.preview',
+    descriptionKey: 'viewMode.previewDescription',
   },
   {
     id: FileViewMode.Source,
-    label: 'Source',
-    description: 'Raw text with line numbers',
+    labelKey: 'viewMode.source',
+    descriptionKey: 'viewMode.sourceDescription',
   },
   {
     id: FileViewMode.Visual,
-    label: 'Visual',
-    description: 'Visual layout with enrichments overlaid',
+    labelKey: 'viewMode.visual',
+    descriptionKey: 'viewMode.visualDescription',
   },
 ];
 
@@ -44,6 +43,7 @@ export function ViewModeSwitcher({
   onModeChange,
   availableModes,
 }: ViewModeSwitcherProps) {
+  const { t } = useTranslation();
   const options = availableModes
     ? VIEW_MODE_OPTIONS.filter((o) => availableModes.includes(o.id))
     : VIEW_MODE_OPTIONS;
@@ -62,9 +62,9 @@ export function ViewModeSwitcher({
                 ? 'bg-primary text-primary-foreground'
                 : 'text-foreground hover:bg-accent hover:text-accent-foreground'
             }`}
-            title={option.description}
+            title={t(option.descriptionKey)}
           >
-            {option.label}
+            {t(option.labelKey)}
           </button>
         );
       })}

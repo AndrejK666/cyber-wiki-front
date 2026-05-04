@@ -4,11 +4,10 @@
  * Per FR cpt-cyberwiki-fr-inline-comments / cpt-cyberwiki-fr-comment-threads /
  * cpt-cyberwiki-fr-document-level-comments. Talks to the system through actions
  * (no direct API calls).
- *
- * Ported from doclab components/main-view/sidebar/CommentsTab.tsx.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import { trim } from 'lodash';
 import { ChevronDown, ChevronRight, FileText, MessageSquare, Send } from 'lucide-react';
 import { Comment } from '@/app/components/enrichments/Comment';
@@ -27,6 +26,7 @@ interface CommentsTabProps {
 }
 
 export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabProps) {
+  const { t } = useTranslation();
   const [newCommentText, setNewCommentText] = useState('');
   const [newDocCommentText, setNewDocCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,7 +45,6 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
     return list;
   }, [comments]);
 
-  // Auto-expand selected line's thread
   useEffect(() => {
     if (!selectedLines) return;
     const match = lineComments.find(
@@ -70,7 +69,6 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
     setIsSubmitting(true);
     createCommentAction(sourceUri, newCommentText, selectedLines.start, selectedLines.end);
     setNewCommentText('');
-    // optimistic clear; loading flag is short-lived (effect refreshes via wiki/comment/created)
     setIsSubmitting(false);
   }, [newCommentText, selectedLines, sourceUri]);
 
@@ -108,8 +106,8 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
     <>
       <ConfirmDialog
         open={pendingDelete !== null}
-        message="Delete this comment?"
-        confirmLabel="Delete"
+        message={t('commentsTab.deleteConfirm')}
+        confirmLabel={t('common.delete')}
         danger
         onConfirm={() => {
           if (pendingDelete) {
@@ -122,7 +120,6 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
 
       <div className="flex flex-col h-full overflow-hidden">
         <div className="flex-1 overflow-auto px-4 py-3">
-          {/* Document Comments */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <button
@@ -132,7 +129,7 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
               >
                 {docCommentsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 <FileText size={16} />
-                Document Comments ({docComments.length})
+                {t('commentsTab.docComments', { count: docComments.length })}
               </button>
               {docCommentsExpanded && !showDocCommentForm && (
                 <button
@@ -140,7 +137,7 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
                   onClick={() => setShowDocCommentForm(true)}
                   className="text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  Add Comment
+                  {t('commentsTab.addComment')}
                 </button>
               )}
             </div>
@@ -156,7 +153,7 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
                       handleSubmitDoc();
                     }
                   }}
-                  placeholder="Comment on the entire document… (Ctrl+Enter to submit)"
+                  placeholder={t('commentsTab.docPlaceholder')}
                   className="w-full px-3 py-2 text-sm border border-border rounded resize-none h-20 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   autoFocus
                 />
@@ -169,7 +166,7 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
                     }}
                     className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:bg-accent"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="button"
@@ -178,7 +175,7 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
                     className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send size={14} />
-                    Post Comment
+                    {t('commentsTab.postComment')}
                   </button>
                 </div>
               </div>
@@ -204,16 +201,15 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
             )}
             {docCommentsExpanded && docComments.length === 0 && !showDocCommentForm && (
               <div className="text-center py-4 text-xs text-muted-foreground">
-                No document comments yet
+                {t('commentsTab.noDocComments')}
               </div>
             )}
           </div>
 
-          {/* Line Comments */}
           {lineComments.length > 0 && (
             <div className="border-t border-border pt-4">
               <div className="text-sm font-medium text-foreground mb-3">
-                Line Comments ({lineComments.length})
+                {t('commentsTab.lineComments', { count: lineComments.length })}
               </div>
               <div className="space-y-3">
                 {lineComments.map((c) => {
@@ -243,8 +239,10 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
                       >
                         <span className="flex items-center gap-2">
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          Line {c.line_start} • {totalCount} comment
-                          {totalCount > 1 ? 's' : ''}
+                          {t(totalCount > 1 ? 'commentsTab.lineHeaderPlural' : 'commentsTab.lineHeaderSingle', {
+                            line: c.line_start ?? 0,
+                            count: totalCount,
+                          })}
                         </span>
                       </button>
 
@@ -267,22 +265,20 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
           {comments.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <MessageSquare size={32} className="mx-auto mb-2 opacity-50" />
-              <div className="text-sm">No comments yet</div>
+              <div className="text-sm">{t('commentsTab.emptyTitle')}</div>
               {!selectedLines && (
-                <div className="text-xs mt-1">Click a line to add a comment</div>
+                <div className="text-xs mt-1">{t('commentsTab.emptyHintClick')}</div>
               )}
             </div>
           )}
         </div>
 
-        {/* Inline new-comment form */}
         {selectedLines && (
           <div className="flex-shrink-0 px-4 py-3 border-t border-border bg-muted">
             <div className="text-xs font-medium text-muted-foreground mb-2">
-              Add comment to{' '}
               {selectedLines.start === selectedLines.end
-                ? `Line ${selectedLines.start}`
-                : `Lines ${selectedLines.start}-${selectedLines.end}`}
+                ? t('commentsTab.addToLine', { line: selectedLines.start })
+                : t('commentsTab.addToLines', { start: selectedLines.start, end: selectedLines.end })}
             </div>
             <textarea
               value={newCommentText}
@@ -293,7 +289,7 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
                   handleSubmitLine();
                 }
               }}
-              placeholder="Enter your comment… (Ctrl+Enter to submit)"
+              placeholder={t('commentsTab.linePlaceholder')}
               className="w-full px-3 py-2 text-sm border border-border rounded resize-none h-20 max-h-[7.5rem] bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               autoFocus
             />
@@ -305,7 +301,7 @@ export function CommentsTab({ comments, sourceUri, selectedLines }: CommentsTabP
                 className="flex items-center gap-2 px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={14} />
-                Post Comment
+                {t('commentsTab.postComment')}
               </button>
             </div>
           </div>

@@ -44,6 +44,10 @@ export function openFile(space: Space, filePath: string): void {
   eventBus.emit('wiki/file/open', { space, filePath });
 }
 
+export function loadBlame(space: Space, filePath: string): void {
+  eventBus.emit('wiki/blame/load', { space, filePath });
+}
+
 export function navigateTo(hash: string): void {
   eventBus.emit('wiki/navigate', { hash });
 }

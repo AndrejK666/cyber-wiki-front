@@ -7,10 +7,11 @@
  */
 
 import { useState, useEffect, type FormEvent } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
 import { loginAction } from '@/app/actions/bootstrapActions';
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -45,11 +46,11 @@ export function LoginPage() {
     const trimmedPassword = password.trim();
 
     if (!trimmedUsername) {
-      setValidationError('Username is required');
+      setValidationError(t('auth.login.errorEmptyUsername'));
       return;
     }
     if (!trimmedPassword) {
-      setValidationError('Password is required');
+      setValidationError(t('auth.login.errorEmptyPassword'));
       return;
     }
 
@@ -66,13 +67,13 @@ export function LoginPage() {
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-4 bg-primary">
-              <span className="text-2xl font-bold text-white">CW</span>
+              <span className="text-2xl font-bold text-white">{t('app.logoMark')}</span>
             </div>
             <h1 className="text-3xl font-bold text-foreground">
-              <span className="text-primary">Cyber</span>
-              <span>Wiki</span>
+              <span className="text-primary">{t('app.logoCyber')}</span>
+              <span>{t('app.logoWiki')}</span>
             </h1>
-            <p className="text-muted-foreground mt-2">Sign in to your account</p>
+            <p className="text-muted-foreground mt-2">{t('auth.login.tagline')}</p>
           </div>
 
           {/* Error Alert */}
@@ -86,14 +87,14 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">
-                Username
+                {t('auth.login.username')}
               </label>
               <input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                placeholder={t('auth.login.usernamePlaceholder')}
                 disabled={isLoading}
                 autoComplete="username"
                 autoFocus
@@ -103,14 +104,14 @@ export function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
-                Password
+                {t('auth.login.password')}
               </label>
               <input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder={t('auth.login.passwordPlaceholder')}
                 disabled={isLoading}
                 autoComplete="current-password"
                 className="w-full px-3 py-2.5 bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -122,13 +123,13 @@ export function LoginPage() {
               disabled={isLoading}
               className="w-full py-2.5 px-4 rounded-md font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary/90"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? t('auth.login.submitting') : t('auth.login.submit')}
             </button>
           </form>
 
           {/* Help Text */}
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Default credentials: admin / admin</p>
+            <p>{t('auth.login.defaultCredentialsHint')}</p>
           </div>
         </div>
       </div>

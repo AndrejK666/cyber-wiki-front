@@ -12,6 +12,7 @@
  */
 
 import { useCallback } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import { FileTree } from '@/app/components/file/FileTree';
 import {
   createFileMapping,
@@ -25,13 +26,13 @@ import {
   type TreeNode,
 } from '@/app/api';
 
-const FILE_SOURCE_OPTIONS: Array<{ value: DisplayNameSource | ''; label: string }> = [
-  { value: '', label: 'Inherit' },
-  { value: DisplayNameSource.FirstH1, label: 'H1' },
-  { value: DisplayNameSource.FirstH2, label: 'H2' },
-  { value: DisplayNameSource.TitleFrontmatter, label: 'Frontmatter' },
-  { value: DisplayNameSource.Filename, label: 'Filename' },
-  { value: DisplayNameSource.Custom, label: 'Custom' },
+const FILE_SOURCE_OPTIONS: Array<{ value: DisplayNameSource | ''; labelKey: string }> = [
+  { value: '', labelKey: 'fileMappingConfigPanel.sourceInherit' },
+  { value: DisplayNameSource.FirstH1, labelKey: 'fileMappingConfigPanel.sourceH1' },
+  { value: DisplayNameSource.FirstH2, labelKey: 'fileMappingConfigPanel.sourceH2' },
+  { value: DisplayNameSource.TitleFrontmatter, labelKey: 'fileMappingConfigPanel.sourceFrontmatter' },
+  { value: DisplayNameSource.Filename, labelKey: 'fileMappingConfigPanel.sourceFilename' },
+  { value: DisplayNameSource.Custom, labelKey: 'fileMappingConfigPanel.sourceCustom' },
 ];
 
 interface FileMappingConfigPanelProps {
@@ -46,6 +47,7 @@ export function FileMappingConfigPanel({
   tree,
   mappings,
 }: FileMappingConfigPanelProps) {
+  const { t } = useTranslation();
   const isFolderPath = (node: TreeNode) => node.type === TreeNodeType.Dir;
 
   const handleToggleVisibility = useCallback(
@@ -122,7 +124,7 @@ export function FileMappingConfigPanel({
               }}
               onClick={(e) => e.stopPropagation()}
             />
-            Visible
+            {t('fileMappingConfigPanel.visible')}
           </label>
           {!isFolder && (
             <select
@@ -133,18 +135,18 @@ export function FileMappingConfigPanel({
             >
               {FILE_SOURCE_OPTIONS.map((opt) => (
                 <option key={opt.value || 'inherit'} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
           )}
           {mapping?.is_override && (
-            <span className="text-xs text-blue-600 font-medium">override</span>
+            <span className="text-xs text-blue-600 font-medium">{t('fileMappingConfigPanel.override')}</span>
           )}
         </div>
       );
     },
-    [handleChangeSource, handleToggleVisibility, mappings],
+    [handleChangeSource, handleToggleVisibility, mappings, t],
   );
 
   return <FileTree tree={tree} renderRowExtras={renderRowExtras} />;

@@ -9,7 +9,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
+import { trim } from 'lodash';
 import { Plus, X } from 'lucide-react';
 import { FileMappingConfigPanel } from '@/app/components/file-mapping/FileMappingConfigPanel';
 import { FileMappingPreview } from '@/app/components/file-mapping/FileMappingPreview';
@@ -28,11 +29,11 @@ import {
   type TreeNode,
 } from '@/app/api';
 
-const SPACE_DEFAULT_OPTIONS: Array<{ value: DisplayNameSource; label: string }> = [
-  { value: DisplayNameSource.FirstH1, label: 'H1' },
-  { value: DisplayNameSource.FirstH2, label: 'H2' },
-  { value: DisplayNameSource.TitleFrontmatter, label: 'Frontmatter' },
-  { value: DisplayNameSource.Filename, label: 'Filename' },
+const SPACE_DEFAULT_OPTIONS: Array<{ value: DisplayNameSource; labelKey: string }> = [
+  { value: DisplayNameSource.FirstH1, labelKey: 'fileMapping.sourceH1' },
+  { value: DisplayNameSource.FirstH2, labelKey: 'fileMapping.sourceH2' },
+  { value: DisplayNameSource.TitleFrontmatter, labelKey: 'fileMapping.sourceFrontmatter' },
+  { value: DisplayNameSource.Filename, labelKey: 'fileMapping.sourceFilename' },
 ];
 
 interface FileMappingConfigurationProps {
@@ -41,6 +42,7 @@ interface FileMappingConfigurationProps {
 }
 
 export function FileMappingConfiguration({ space, onClose }: FileMappingConfigurationProps) {
+  const { t } = useTranslation();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [filters, setFilters] = useState<string[]>(space.filters || []);
@@ -87,7 +89,7 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
   );
 
   const handleAddFilter = useCallback(() => {
-    const value = newFilter.trim();
+    const value = trim(newFilter);
     if (!value || filters.includes(value)) return;
     persistFilters([...filters, value]);
     setNewFilter('');
@@ -112,9 +114,9 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
     <>
       <ConfirmDialog
         open={pendingSync}
-        title="Sync file mappings"
-        message="Sync will remove mappings for deleted files and recompute effective values. Continue?"
-        confirmLabel="Sync"
+        title={t('fileMapping.syncConfirmTitle')}
+        message={t('fileMapping.syncConfirmMessage')}
+        confirmLabel={t('fileMapping.sync')}
         onConfirm={() => {
           syncFileMappings(space.slug);
           setPendingSync(false);
@@ -125,23 +127,23 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
       <div className="bg-background rounded-lg shadow-lg max-w-7xl mx-auto h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">File Mapping Configuration</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('fileMapping.title')}</h2>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => refreshFileMappings(space.slug)}
               className="px-3 py-1 text-sm rounded bg-green-600 text-white hover:bg-green-700"
-              title="Re-extract display names from file contents"
+              title={t('fileMapping.refreshTitle')}
             >
-              Refresh
+              {t('fileMapping.refresh')}
             </button>
             <button
               type="button"
               onClick={() => setPendingSync(true)}
               className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-              title="Drop mappings for deleted files and recompute effective values"
+              title={t('fileMapping.syncTitle')}
             >
-              Sync
+              {t('fileMapping.sync')}
             </button>
             <button
               type="button"
@@ -156,7 +158,7 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
         {/* Space-wide settings */}
         <div className="p-4 border-b border-border bg-muted space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">Space default:</span>
+            <span className="text-sm font-medium text-foreground">{t('fileMapping.spaceDefault')}</span>
             <select
               value={defaultSource}
               onChange={(e) => handleChangeDefault(e.target.value as DisplayNameSource)}
@@ -164,17 +166,17 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
             >
               {SPACE_DEFAULT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
             <span className="text-xs text-muted-foreground">
-              (applies to all files unless overridden)
+              {t('fileMapping.spaceDefaultHint')}
             </span>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-foreground">Filters:</span>
+            <span className="text-sm font-medium text-foreground">{t('fileMapping.filters')}</span>
             {filters.map((filter) => (
               <span
                 key={filter}
@@ -200,7 +202,7 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
                   handleAddFilter();
                 }
               }}
-              placeholder=".xml"
+              placeholder={t('fileMapping.filterPlaceholder')}
               className="px-2 py-1 border border-border rounded text-sm w-20 bg-background text-foreground"
             />
             <button

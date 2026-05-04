@@ -90,26 +90,35 @@ const SidebarMenuItem = (
 />)
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
-type SidebarMenuButtonVariant = "default" | "outline"
-type SidebarMenuButtonSize = "default" | "sm" | "lg"
+export enum SidebarMenuButtonVariant {
+  Default = "default",
+  Outline = "outline",
+}
+
+export enum SidebarMenuButtonSize {
+  Default = "default",
+  Sm = "sm",
+  Lg = "lg",
+}
 
 const SIDEBAR_MENU_BUTTON_BASE_CLASSES =
   "peer/menu-button flex w-full items-center gap-2 rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>span:last-child]:overflow-hidden [&>svg]:size-5 [&>svg]:shrink-0 text-mainMenu-foreground hover:bg-mainMenu-hover data-[active=true]:bg-mainMenu-selected data-[active=true]:text-white data-[active=true]:font-medium"
 
 const SIDEBAR_MENU_BUTTON_VARIANT_CLASSES: Record<SidebarMenuButtonVariant, string> = {
-  default: "",
-  outline: "bg-background shadow-[0_0_0_1px_hsl(var(--border))] hover:bg-mainMenu-hover",
+  [SidebarMenuButtonVariant.Default]: "",
+  [SidebarMenuButtonVariant.Outline]:
+    "bg-background shadow-[0_0_0_1px_hsl(var(--border))] hover:bg-mainMenu-hover",
 }
 
 const SIDEBAR_MENU_BUTTON_SIZE_CLASSES: Record<SidebarMenuButtonSize, string> = {
-  default: "h-10 text-sm",
-  sm: "h-7 text-xs",
-  lg: "h-12 text-sm group-data-[collapsible=icon]:!p-0",
+  [SidebarMenuButtonSize.Default]: "h-10 text-sm",
+  [SidebarMenuButtonSize.Sm]: "h-7 text-xs",
+  [SidebarMenuButtonSize.Lg]: "h-12 text-sm group-data-[collapsible=icon]:!p-0",
 }
 
 function sidebarMenuButtonVariants({
-  variant = "default",
-  size = "default",
+  variant = SidebarMenuButtonVariant.Default,
+  size = SidebarMenuButtonSize.Default,
 }: {
   variant?: SidebarMenuButtonVariant
   size?: SidebarMenuButtonSize
@@ -126,8 +135,8 @@ const SidebarMenuButton = (
     ref,
     asChild = false,
     isActive = false,
-    variant = "default",
-    size = "default",
+    variant = SidebarMenuButtonVariant.Default,
+    size = SidebarMenuButtonSize.Default,
     tooltip,
     className,
     ...props

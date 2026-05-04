@@ -8,6 +8,7 @@
  */
 
 import React, { useMemo } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 
 interface DraftDiffViewProps {
   /** On-disk file content (the "before" side). */
@@ -153,6 +154,7 @@ export const DraftDiffView: React.FC<DraftDiffViewProps> = ({
   modified,
   context = 3,
 }) => {
+  const { t } = useTranslation();
   const hunks = useMemo(() => {
     const diff = computeDiff(original, modified);
     return buildHunks(diff, context);
@@ -161,7 +163,7 @@ export const DraftDiffView: React.FC<DraftDiffViewProps> = ({
   if (original === modified) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
-        No differences between the on-disk file and your draft.
+        {t('draftDiff.noDifferences')}
       </div>
     );
   }
@@ -169,7 +171,7 @@ export const DraftDiffView: React.FC<DraftDiffViewProps> = ({
   if (hunks.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
-        No textual differences (whitespace-only change).
+        {t('draftDiff.whitespaceOnly')}
       </div>
     );
   }
@@ -189,7 +191,7 @@ export const DraftDiffView: React.FC<DraftDiffViewProps> = ({
         <span className="text-green-700 dark:text-green-400">+{additions}</span>
         <span className="text-red-700 dark:text-red-400">-{deletions}</span>
         <span className="text-muted-foreground ml-auto">
-          {hunks.length} {hunks.length === 1 ? 'hunk' : 'hunks'}
+          {t(hunks.length === 1 ? 'draftDiff.hunkCount' : 'draftDiff.hunkCount_plural', { count: hunks.length })}
         </span>
       </div>
       {hunks.map((hunk, hi) => (

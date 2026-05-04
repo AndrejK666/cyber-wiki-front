@@ -6,18 +6,21 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
+import { upperFirst, lowerCase } from 'lodash';
 import { Search, Plus, Star, Grid, List } from 'lucide-react';
 import { loadSpaces, toggleFavorite } from '@/app/actions/wikiActions';
 import { Urls, type Space, type UserSpacePreference } from '@/app/api';
 import CreateSpaceModal from '@/app/components/space/CreateSpaceModal';
 import { PageTitle } from '@/app/layout';
+import { formatDate } from '@/app/lib/formatDate';
 
 interface SpacesPageProps {
   navigate: (view: string) => void;
 }
 
 const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
+  const { t } = useTranslation();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [favorites, setFavorites] = useState<UserSpacePreference[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,10 +47,11 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
     toggleFavorite(spaceSlug, isFavorite);
   };
 
+  const q = lowerCase(searchQuery);
   const filteredSpaces = spaces.filter(
     space =>
-      space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      space.description.toLowerCase().includes(searchQuery.toLowerCase())
+      lowerCase(space.name).includes(q) ||
+      lowerCase(space.description).includes(q),
   );
 
   const favoriteSpaces = filteredSpaces.filter(space =>
@@ -60,15 +64,14 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full bg-background">
-        <p className="text-muted-foreground">Loading spaces...</p>
+        <p className="text-muted-foreground">{t('spaces.loading')}</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <PageTitle title="Spaces" subtitle="Browse and manage your documentation spaces" />
-      {/* Toolbar */}
+      <PageTitle title={t('spaces.title')} subtitle={t('spaces.subtitle')} />
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center justify-end mb-3">
           <button
@@ -76,17 +79,16 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all bg-primary text-primary-foreground hover:opacity-90"
           >
             <Plus size={20} />
-            Create Space
+            {t('spaces.create')}
           </button>
         </div>
 
-        {/* Search and View Mode */}
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
             <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search spaces..."
+              placeholder={t('spaces.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-lg border bg-background"
@@ -96,14 +98,14 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded transition-all ${viewMode === 'grid' ? 'bg-card text-foreground' : 'text-muted-foreground'}`}
-              title="Grid view"
+              title={t('spaces.viewGrid')}
             >
               <Grid size={20} />
             </button>
             <button
               onClick={() => setViewMode('list')}
               className={`p-2 rounded transition-all ${viewMode === 'list' ? 'bg-card text-foreground' : 'text-muted-foreground'}`}
-              title="List view"
+              title={t('spaces.viewList')}
             >
               <List size={20} />
             </button>
@@ -111,14 +113,12 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Favorites */}
         {favoriteSpaces.length > 0 && (
           <section className="mb-8">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-foreground">
               <Star size={20} className="text-yellow-500" />
-              Favorites ({favoriteSpaces.length})
+              {t('spaces.favorites', { count: favoriteSpaces.length })}
             </h2>
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -148,11 +148,10 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
           </section>
         )}
 
-        {/* All Spaces */}
         {otherSpaces.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-4 text-foreground">
-              All Spaces ({otherSpaces.length})
+              {t('spaces.all', { count: otherSpaces.length })}
             </h2>
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -182,24 +181,23 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
           </section>
         )}
 
-        {/* Empty State */}
         {filteredSpaces.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-muted mb-4">
               <Search size={32} className="text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold mb-2 text-foreground">
-              {searchQuery ? 'No spaces found' : 'No spaces yet'}
+              {searchQuery ? t('spaces.empty.noResultsTitle') : t('spaces.empty.noSpacesTitle')}
             </h3>
             <p className="mb-4 text-muted-foreground">
-              {searchQuery ? 'Try adjusting your search query' : 'Create your first space to get started'}
+              {searchQuery ? t('spaces.empty.noResultsHint') : t('spaces.empty.noSpacesHint')}
             </p>
             {!searchQuery && (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="px-6 py-2 rounded-lg font-medium bg-primary text-primary-foreground"
               >
-                Create Space
+                {t('spaces.create')}
               </button>
             )}
           </div>
@@ -214,10 +212,6 @@ const SpacesPage: React.FC<SpacesPageProps> = ({ navigate }) => {
   );
 };
 
-// =============================================================================
-// SpaceCard — grid card
-// =============================================================================
-
 interface SpaceCardProps {
   space: Space;
   isFavorite: boolean;
@@ -226,6 +220,7 @@ interface SpaceCardProps {
 }
 
 function SpaceCard({ space, isFavorite, onNavigate, onToggleFavorite }: SpaceCardProps) {
+  const { t } = useTranslation();
   return (
     <div
       className="group relative p-4 rounded-lg border border-border bg-card transition-all cursor-pointer hover:border-primary hover:-translate-y-0.5"
@@ -237,7 +232,8 @@ function SpaceCard({ space, isFavorite, onNavigate, onToggleFavorite }: SpaceCar
           onToggleFavorite();
         }}
         className={`absolute top-3 right-3 p-1.5 rounded-md bg-muted transition-opacity ${isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        aria-label={isFavorite ? t('spaces.card.removeFromFavorites') : t('spaces.card.addToFavorites')}
+        title={isFavorite ? t('spaces.card.removeFromFavorites') : t('spaces.card.addToFavorites')}
       >
         <Star
           size={16}
@@ -247,11 +243,11 @@ function SpaceCard({ space, isFavorite, onNavigate, onToggleFavorite }: SpaceCar
 
       <div className="flex items-start gap-3 mb-3">
         <div className="w-12 h-12 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg flex-shrink-0">
-          {space.name.charAt(0).toUpperCase()}
+          {upperFirst(space.name)[0] ?? ''}
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold truncate text-foreground">{space.name}</h3>
-          <p className="text-sm truncate text-muted-foreground">{space.page_count} pages</p>
+          <p className="text-sm truncate text-muted-foreground">{t('spaces.card.pageCount', { count: space.page_count })}</p>
         </div>
       </div>
 
@@ -264,16 +260,12 @@ function SpaceCard({ space, isFavorite, onNavigate, onToggleFavorite }: SpaceCar
           <span className="capitalize">{space.git_provider.replace('_', ' ')}</span>
         )}
         {space.last_synced_at && (
-          <span>Synced {new Date(space.last_synced_at).toLocaleDateString()}</span>
+          <span>{t('spaces.card.synced', { date: formatDate(space.last_synced_at) })}</span>
         )}
       </div>
     </div>
   );
 }
-
-// =============================================================================
-// SpaceListItem — list row
-// =============================================================================
 
 interface SpaceListItemProps {
   space: Space;
@@ -283,24 +275,25 @@ interface SpaceListItemProps {
 }
 
 function SpaceListItem({ space, isFavorite, onNavigate, onToggleFavorite }: SpaceListItemProps) {
+  const { t } = useTranslation();
   return (
     <div
       className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card transition-all cursor-pointer hover:border-primary"
       onClick={onNavigate}
     >
       <div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
-        {space.name.charAt(0).toUpperCase()}
+        {upperFirst(space.name)[0] ?? ''}
       </div>
 
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold truncate text-foreground">{space.name}</h3>
         <p className="text-sm truncate text-muted-foreground">
-          {space.description || `${space.page_count} pages`}
+          {space.description || t('spaces.card.pageCount', { count: space.page_count })}
         </p>
       </div>
 
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span>{space.page_count} pages</span>
+        <span>{t('spaces.card.pageCount', { count: space.page_count })}</span>
         {space.git_provider && (
           <span className="capitalize">{space.git_provider.replace('_', ' ')}</span>
         )}
@@ -312,7 +305,8 @@ function SpaceListItem({ space, isFavorite, onNavigate, onToggleFavorite }: Spac
           onToggleFavorite();
         }}
         className="p-2 rounded-md opacity-0 group-hover:opacity-100 transition-opacity bg-muted"
-        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        aria-label={isFavorite ? t('spaces.card.removeFromFavorites') : t('spaces.card.addToFavorites')}
+        title={isFavorite ? t('spaces.card.removeFromFavorites') : t('spaces.card.addToFavorites')}
       >
         <Star
           size={16}

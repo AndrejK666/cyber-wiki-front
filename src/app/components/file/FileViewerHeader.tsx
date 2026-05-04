@@ -6,6 +6,7 @@
  * rebuilt on cyber-wiki's FileViewMode.
  */
 
+import { useTranslation } from '@cyberfabric/react';
 import { ArrowLeft, Filter, MessageSquare, Pencil, Save, X } from 'lucide-react';
 import { ViewModeSwitcher } from '@/app/components/file/ViewModeSwitcher';
 import { FileViewMode } from '@/app/api';
@@ -91,6 +92,7 @@ export function FileViewerHeader({
   onSave,
   onCancel,
 }: FileViewerHeaderProps) {
+  const { t } = useTranslation();
   const showContentFilter =
     !isEditMode &&
     !!onContentFilterChange &&
@@ -106,7 +108,7 @@ export function FileViewerHeader({
           className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-background text-primary hover:bg-accent"
         >
           <ArrowLeft size={14} />
-          Back
+          {t('common.back')}
         </button>
         <div className="text-xs text-muted-foreground">
           {spaceName} / {breadcrumbPath || filePath}
@@ -122,17 +124,17 @@ export function FileViewerHeader({
                 onChange={(e) => onContentFilterChange?.(parseFilterValue(e.target.value))}
                 className="px-2 py-0.5 text-xs rounded border border-border bg-background text-foreground"
               >
-                <option value={ContentFilterType.All}>All Changes</option>
-                <option value={ContentFilterType.Original}>Original</option>
+                <option value={ContentFilterType.All}>{t('fileViewerHeader.filterAll')}</option>
+                <option value={ContentFilterType.Original}>{t('fileViewerHeader.filterOriginal')}</option>
                 {hasUncommittedChanges && (
-                  <option value={ContentFilterType.MyChanges}>My Draft</option>
+                  <option value={ContentFilterType.MyChanges}>{t('fileViewerHeader.filterMyDraft')}</option>
                 )}
                 {hasCommittedChanges && (
-                  <option value={ContentFilterType.MyCommits}>My Commits</option>
+                  <option value={ContentFilterType.MyCommits}>{t('fileViewerHeader.filterMyCommits')}</option>
                 )}
                 {prNumbers?.map((prNum) => (
                   <option key={prNum} value={`pr-${prNum}`}>
-                    PR #{prNum}
+                    {t('prBanner.prNumber', { number: prNum })}
                   </option>
                 ))}
                 {commitShas?.map((sha) => (
@@ -154,7 +156,7 @@ export function FileViewerHeader({
               type="button"
               onClick={onSave}
               disabled={!isDirty}
-              title="Save changes"
+              title={t('fileViewerHeader.saveTitle')}
               className={`flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed ${
                 isDirty
                   ? 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -162,12 +164,12 @@ export function FileViewerHeader({
               }`}
             >
               <Save size={12} />
-              Save
+              {t('common.save')}
             </button>
             <button
               type="button"
               onClick={onCancel}
-              title="Discard changes"
+              title={t('fileViewerHeader.discardTitle')}
               className="flex items-center px-1.5 py-0.5 text-xs rounded border border-border bg-background text-muted-foreground hover:bg-accent"
             >
               <X size={13} />
@@ -177,11 +179,11 @@ export function FileViewerHeader({
           <button
             type="button"
             onClick={onToggleEdit}
-            title="Edit file"
+            title={t('fileViewerHeader.editTitle')}
             className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded border border-border bg-background text-foreground hover:bg-accent"
           >
             <Pencil size={12} />
-            Edit
+            {t('common.edit')}
           </button>
         )}
 
@@ -197,7 +199,7 @@ export function FileViewerHeader({
           }`}
         >
           <MessageSquare size={14} />
-          Comments {commentsCount ? `(${commentsCount})` : ''}
+          {t('fileViewerHeader.comments')} {commentsCount ? `(${commentsCount})` : ''}
         </button>
       </div>
     </div>

@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
 import {
   Check,
   ChevronDown,
@@ -39,6 +39,7 @@ import {
   type EditEnrichment,
 } from '@/app/api';
 import { ConfirmDialog } from '@/app/components/primitives/ConfirmDialog';
+import { formatDateTime } from '@/app/lib/formatDate';
 
 interface ChangesTabProps {
   currentFilePath?: string;
@@ -65,10 +66,13 @@ function changeTypeIcon(changeType: EditChangeType) {
   return <Edit3 size={14} className="text-blue-600" />;
 }
 
-function changeTypeLabel(changeType: EditChangeType) {
-  if (changeType === EditChangeType.Create) return 'New file';
-  if (changeType === EditChangeType.Delete) return 'Deleted';
-  return 'Modified';
+function useChangeTypeLabel() {
+  const { t } = useTranslation();
+  return (changeType: EditChangeType) => {
+    if (changeType === EditChangeType.Create) return t('changesTab.newFileLabel');
+    if (changeType === EditChangeType.Delete) return t('changesTab.deletedLabel');
+    return t('changesTab.modifiedLabel');
+  };
 }
 
 function changeTypeBadgeClasses(changeType: EditChangeType) {
@@ -115,6 +119,8 @@ export function ChangesTab({
   onNavigateToFile,
   onRefresh,
 }: ChangesTabProps) {
+  const { t } = useTranslation();
+  const changeTypeLabel = useChangeTypeLabel();
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -182,7 +188,7 @@ export function ChangesTab({
     (changeId: string, filePath: string, e: React.MouseEvent) => {
       e.stopPropagation();
       askConfirm(
-        `Discard changes to ${filePath}?`,
+        t('changesTab.discardConfirm', { path: filePath }),
         () => {
           setIsLoading(true);
           discardDraft(changeId);
@@ -195,13 +201,13 @@ export function ChangesTab({
         true,
       );
     },
-    [askConfirm],
+    [askConfirm, t],
   );
 
   const handleDiscardSelected = useCallback(() => {
     if (selectedFiles.size === 0) return;
     askConfirm(
-      `Discard changes to ${selectedFiles.size} file${selectedFiles.size !== 1 ? 's' : ''}?`,
+      t(selectedFiles.size === 1 ? 'changesTab.discardSelectedConfirm' : 'changesTab.discardSelectedConfirm_plural', { count: selectedFiles.size }),
       () => {
         setIsLoading(true);
         for (const changeId of selectedFiles) {
@@ -211,7 +217,7 @@ export function ChangesTab({
       },
       true,
     );
-  }, [askConfirm, selectedFiles]);
+  }, [askConfirm, selectedFiles, t]);
 
   const handleCommitSelected = useCallback(() => {
     if (selectedFiles.size === 0) return;
@@ -234,8 +240,8 @@ export function ChangesTab({
     return (
       <div className="p-4 text-center text-muted-foreground">
         <FileText size={32} className="mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No pending changes</p>
-        <p className="text-xs mt-1">Edit a file and save to see changes here</p>
+        <p className="text-sm">{t('changesTab.emptyTitle')}</p>
+        <p className="text-xs mt-1">{t('changesTab.emptyHint')}</p>
       </div>
     );
   }
@@ -246,7 +252,7 @@ export function ChangesTab({
         open={confirm !== null}
         message={confirm?.message ?? ''}
         danger={confirm?.danger ?? false}
-        confirmLabel={confirm?.danger ? 'Discard' : 'Confirm'}
+        confirmLabel={confirm?.danger ? t('common.discard') : t('common.confirm')}
         onConfirm={() => {
           const fn = confirm?.onConfirm;
           setConfirm(null);
@@ -261,10 +267,10 @@ export function ChangesTab({
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-sm font-medium text-foreground">Uncommitted Changes</h3>
+                <h3 className="text-sm font-medium text-foreground">{t('changesTab.uncommitted')}</h3>
                 <p className="text-xs mt-0.5 text-muted-foreground">
-                  {editEnrichments.length} file{editEnrichments.length !== 1 ? 's' : ''} changed
-                  {selectedFiles.size > 0 && ` (${selectedFiles.size} selected)`}
+                  {t(editEnrichments.length === 1 ? 'changesTab.fileChanged' : 'changesTab.fileChanged_plural', { count: editEnrichments.length })}
+                  {selectedFiles.size > 0 && ` ${t('changesTab.selectedSuffix', { count: selectedFiles.size })}`}
                 </p>
               </div>
             </div>
@@ -280,7 +286,7 @@ export function ChangesTab({
                 className="flex items-center gap-1 px-2 py-1 text-xs rounded text-muted-foreground hover:bg-accent"
               >
                 {allSelected ? <Check size={12} /> : <Square size={12} />}
-                {allSelected ? 'Deselect All' : 'Select All'}
+                {allSelected ? t('changesTab.deselectAll') : t('changesTab.selectAll')}
               </button>
 
               <div className="flex-1" />
@@ -294,10 +300,10 @@ export function ChangesTab({
                     ? 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-muted text-muted-foreground'
                 }`}
-                title="Commit selected changes to git"
+                title={t('changesTab.commitTitle')}
               >
                 <GitCommit size={12} />
-                Commit
+                {t('changesTab.commit')}
               </button>
 
               <button
@@ -309,10 +315,10 @@ export function ChangesTab({
                     ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                     : 'bg-muted text-muted-foreground'
                 }`}
-                title="Discard selected changes"
+                title={t('changesTab.discardTitle')}
               >
                 <Trash2 size={12} />
-                Discard
+                {t('changesTab.discard')}
               </button>
             </div>
 
@@ -322,7 +328,7 @@ export function ChangesTab({
                   type="text"
                   value={commitMessage}
                   onChange={(e) => setCommitMessage(e.target.value)}
-                  placeholder="Commit message (optional)"
+                  placeholder={t('changesTab.commitPlaceholder')}
                   className="w-full px-2 py-1 text-xs rounded border border-border bg-background text-foreground"
                 />
               </div>
@@ -352,7 +358,7 @@ export function ChangesTab({
                     type="button"
                     className="p-0.5 rounded hover:bg-accent"
                     onClick={(e) => toggleFileSelection(change.id, e)}
-                    title={isSelected ? 'Deselect' : 'Select'}
+                    title={isSelected ? t('changesTab.deselectRow') : t('changesTab.selectRow')}
                   >
                     {isSelected ? (
                       <Check size={14} className="text-green-600" />
@@ -392,7 +398,7 @@ export function ChangesTab({
                     type="button"
                     onClick={(e) => handleDiscard(change.id, change.file_path, e)}
                     className="p-1 rounded text-destructive hover:bg-destructive/10"
-                    title="Discard this change"
+                    title={t('changesTab.discardRowTitle')}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -405,7 +411,7 @@ export function ChangesTab({
                         <p className="mb-2 text-muted-foreground">{change.description}</p>
                       )}
                       <div className="text-xs text-muted-foreground">
-                        Last updated: {new Date(change.updated_at).toLocaleString()}
+                        {t('changesTab.lastUpdated', { date: formatDateTime(change.updated_at) })}
                       </div>
                     </div>
 
@@ -432,9 +438,9 @@ export function ChangesTab({
               <div className="px-4 py-3 border-b border-border bg-muted">
                 <div className="flex items-center gap-2">
                   <GitCommit size={16} className="text-violet-600" />
-                  <h3 className="text-sm font-medium text-foreground">Committed Changes</h3>
+                  <h3 className="text-sm font-medium text-foreground">{t('changesTab.committed')}</h3>
                   <span className="text-xs px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
-                    {commitEnrichments.length} file{commitEnrichments.length !== 1 ? 's' : ''}
+                    {t(commitEnrichments.length === 1 ? 'changesTab.fileCount' : 'changesTab.fileCount_plural', { count: commitEnrichments.length })}
                   </span>
                 </div>
               </div>
@@ -497,9 +503,10 @@ function CommitGroup({
   onAskConfirm,
   onSetLoading,
 }: CommitGroupProps) {
+  const { t } = useTranslation();
   const handleUnstage = () => {
     if (!spaceId) return;
-    onAskConfirm(`Move commits from "${workspaceName}" back to draft edits?`, () => {
+    onAskConfirm(t('changesTab.unstageConfirm', { name: workspaceName }), () => {
       onSetLoading(true);
       unstageBranch(spaceId, branchId);
     });
@@ -515,11 +522,21 @@ function CommitGroup({
     <div>
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted">
         <GitCommit size={13} className="text-violet-500 flex-shrink-0" />
-        <span className="text-xs font-medium flex-1 truncate text-foreground">
-          {workspaceName}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {files.length} file{files.length !== 1 ? 's' : ''}
+        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+          <span className="text-xs font-medium truncate text-foreground">
+            {workspaceName}
+          </span>
+          {rep.task_name && rep.branch_name && rep.branch_name !== workspaceName && (
+            <span
+              className="text-[10px] font-mono text-muted-foreground truncate"
+              title={rep.branch_name}
+            >
+              {rep.branch_name}
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground flex-shrink-0">
+          {t(files.length === 1 ? 'changesTab.fileCount' : 'changesTab.fileCount_plural', { count: files.length })}
         </span>
         {spaceId && rep.pr_url && (
           <a
@@ -529,7 +546,7 @@ function CommitGroup({
             className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300"
           >
             <ExternalLink size={11} />
-            PR
+            {t('changesTab.prShort')}
           </a>
         )}
         {spaceId && !rep.pr_url && (
@@ -537,11 +554,11 @@ function CommitGroup({
             type="button"
             disabled={isLoading}
             className="flex items-center gap-1 px-2 py-0.5 text-xs rounded border border-border bg-background text-muted-foreground disabled:opacity-50 hover:bg-accent"
-            title="Move commits back to draft edits"
+            title={t('changesTab.unstageTitle')}
             onClick={handleUnstage}
           >
             <GitCommit size={11} />
-            Unstage
+            {t('changesTab.unstage')}
           </button>
         )}
       </div>
@@ -582,7 +599,7 @@ function CommitGroup({
                 </span>
               )}
               <span className="text-xs px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
-                Committed
+                {t('changesTab.committedBadge')}
               </span>
             </div>
 
@@ -591,13 +608,13 @@ function CommitGroup({
                 <div className="px-4 py-2 space-y-1 border-b border-border text-muted-foreground">
                   {commit.commit_sha && (
                     <div>
-                      <span className="font-medium">Commit:</span>{' '}
+                      <span className="font-medium">{t('changesTab.commitLabel')}</span>{' '}
                       <code className="bg-accent px-1 rounded">
                         {commit.commit_sha.slice(0, 8)}
                       </code>
                     </div>
                   )}
-                  <div>Last updated: {new Date(commit.updated_at).toLocaleString()}</div>
+                  <div>{t('changesTab.lastUpdated', { date: formatDateTime(commit.updated_at) })}</div>
                   {spaceId && !rep.pr_url && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
@@ -607,7 +624,7 @@ function CommitGroup({
                         onClick={handleCreatePr}
                       >
                         <GitPullRequest size={12} />
-                        Create PR
+                        {t('changesTab.createPR')}
                       </button>
                     </div>
                   )}

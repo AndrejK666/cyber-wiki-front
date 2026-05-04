@@ -1,13 +1,11 @@
 /**
  * ChangesPage — global list of every pending draft change the user has made
  * across all spaces. Click a row → navigate into the space + open the file.
- *
- * Per FR cpt-cyberwiki-fr-pending-changes — gives a single inbox for in-flight
- * edits without forcing the user to open every file individually.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
+import { lowerCase, trim } from 'lodash';
 import {
   AlertCircle,
   Check,
@@ -29,12 +27,18 @@ import {
   discardDraft,
   loadDrafts,
 } from '@/app/actions/draftChangeActions';
+import { createPullRequest } from '@/app/actions/userBranchActions';
 import { PageTitle } from '@/app/layout';
 import {
   EditChangeType,
+  GroupSelectionState,
+  PRStatus,
   Urls,
   type DraftChangeListItem,
 } from '@/app/api';
+import { formatDateTime } from '@/app/lib/formatDate';
+import { CommitPrBanner } from '@/app/components/changes/CommitPrBanner';
+import { RecentCommitsPanel } from '@/app/components/changes/RecentCommitsPanel';
 
 interface ChangesPageProps {
   navigate: (view: string) => void;
@@ -79,17 +83,29 @@ function groupBySpace(drafts: DraftChangeListItem[]): SpaceGroup[] {
 }
 
 function ChangesPage({ navigate }: ChangesPageProps) {
+  const { t } = useTranslation();
   const [drafts, setDrafts] = useState<DraftChangeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<EditChangeType | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<EditChangeType | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [commitMessage, setCommitMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingDiscard, setPendingDiscard] = useState<DraftChangeListItem | null>(null);
   const [pendingDiscardSelected, setPendingDiscardSelected] = useState(false);
+  const [lastCommitPr, setLastCommitPr] = useState<
+    | {
+        status: PRStatus;
+        url: string | null;
+        branch: string;
+        error: string | null;
+        spaceId: string;
+        retrying: boolean;
+      }
+    | null
+  >(null);
 
   useEffect(() => {
     setLoading(true);
@@ -103,17 +119,38 @@ function ChangesPage({ navigate }: ChangesPageProps) {
       setLoading(false);
       setBusy(false);
     });
-    // Refresh after server-acked mutations.
     const refresh = () => {
       setBusy(false);
       loadDrafts();
     };
     const mutationSubs = [
       eventBus.on('wiki/draft/discarded', refresh),
-      eventBus.on('wiki/draft/committed', () => {
+      eventBus.on('wiki/draft/committed', ({ pr, prError, prStatus, branchName, spaceId }) => {
         setSelected(new Set());
         setCommitMessage('');
+        setLastCommitPr({
+          status: prStatus ?? (pr ? PRStatus.Existing : PRStatus.NotAttempted),
+          url: pr?.prUrl ?? null,
+          branch: branchName,
+          error: prError ?? null,
+          spaceId,
+          retrying: false,
+        });
         refresh();
+      }),
+      eventBus.on('wiki/pr/created', ({ result }) => {
+        setLastCommitPr((prev) =>
+          prev && prev.retrying
+            ? { ...prev, status: PRStatus.Created, url: result.pr_url, error: null, retrying: false }
+            : prev,
+        );
+      }),
+      eventBus.on('wiki/branch/error', ({ error: msg }) => {
+        setLastCommitPr((prev) =>
+          prev && prev.retrying
+            ? { ...prev, status: PRStatus.Failed, error: msg, retrying: false }
+            : prev,
+        );
       }),
     ];
     loadDrafts();
@@ -126,13 +163,13 @@ function ChangesPage({ navigate }: ChangesPageProps) {
 
   const groups = useMemo(() => {
     const filtered = drafts.filter((d) => {
-      if (typeFilter !== 'all' && d.change_type !== typeFilter) return false;
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
+      if (typeFilter !== null && d.change_type !== typeFilter) return false;
+      const q = lowerCase(trim(search));
+      if (q) {
         if (
-          !d.file_path.toLowerCase().includes(q) &&
-          !d.space_slug.toLowerCase().includes(q) &&
-          !(d.description || '').toLowerCase().includes(q)
+          !lowerCase(d.file_path).includes(q) &&
+          !lowerCase(d.space_slug).includes(q) &&
+          !lowerCase(d.description || '').includes(q)
         ) {
           return false;
         }
@@ -150,8 +187,6 @@ function ChangesPage({ navigate }: ChangesPageProps) {
   );
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
-  /** Number of distinct spaces the selection touches — Commit will fan-out
-   *  into that many backend requests (one per space). */
   const selectedSpaceCount = useMemo(() => {
     const set = new Set<string>();
     for (const d of drafts) {
@@ -182,25 +217,21 @@ function ChangesPage({ navigate }: ChangesPageProps) {
     setSelected(allVisibleSelected ? new Set() : new Set(visibleIds));
   };
 
-  /** Selection state for one space group: 'none' / 'some' / 'all'. Drives
-   *  the tristate checkbox in the group header. */
-  const groupSelectionState = (group: SpaceGroup): 'none' | 'some' | 'all' => {
+  const groupSelectionState = (group: SpaceGroup): GroupSelectionState => {
     let selectedCount = 0;
     for (const d of group.drafts) {
       if (selected.has(d.id)) selectedCount++;
     }
-    if (selectedCount === 0) return 'none';
-    if (selectedCount === group.drafts.length) return 'all';
-    return 'some';
+    if (selectedCount === 0) return GroupSelectionState.None;
+    if (selectedCount === group.drafts.length) return GroupSelectionState.All;
+    return GroupSelectionState.Some;
   };
 
-  /** Toggle every draft in a group: if any are unselected, select them all;
-   *  if all are already selected, deselect them all. */
   const toggleGroupSelection = (group: SpaceGroup) => {
     setSelected((prev) => {
       const next = new Set(prev);
       const state = groupSelectionState(group);
-      if (state === 'all') {
+      if (state === GroupSelectionState.All) {
         for (const d of group.drafts) next.delete(d.id);
       } else {
         for (const d of group.drafts) next.add(d.id);
@@ -219,18 +250,13 @@ function ChangesPage({ navigate }: ChangesPageProps) {
 
   const handleCommitSelected = () => {
     if (selected.size === 0) return;
-    // Backend rejects empty commit messages with a 500. Require non-empty
-    // here so the user gets clear inline feedback instead of a server crash.
-    const message = commitMessage.trim();
+    const message = trim(commitMessage);
     if (!message) {
-      setError('Commit message is required.');
+      setError(t('changes.errorMessageRequired'));
       return;
     }
     setBusy(true);
     setError(null);
-    // Backend requires all change_ids in a single commit request to belong to
-    // the same space — issue one request per space so a multi-repo selection
-    // turns into one commit per repo.
     const idsBySpace = new Map<string, string[]>();
     for (const d of drafts) {
       if (!selected.has(d.id)) continue;
@@ -262,17 +288,23 @@ function ChangesPage({ navigate }: ChangesPageProps) {
     setSelected(new Set());
   };
 
+  const totalLabelKey = total === 1 ? 'changes.totalLabel' : 'changes.totalLabel_plural';
+  const discardSelectedKey =
+    selected.size === 1
+      ? 'changes.discardSelectedDraftsMessage'
+      : 'changes.discardSelectedDraftsMessage_plural';
+
   return (
     <div className="h-full overflow-auto">
       <ConfirmDialog
         open={pendingDiscard !== null}
-        title="Discard draft?"
+        title={t('changes.discardDraftTitle')}
         message={
           pendingDiscard
-            ? `Discard pending change to "${pendingDiscard.file_path}"? This cannot be undone.`
+            ? t('changes.discardDraftMessage', { path: pendingDiscard.file_path })
             : ''
         }
-        confirmLabel="Discard"
+        confirmLabel={t('common.discard')}
         danger
         onConfirm={() => {
           if (pendingDiscard) handleDiscardOne(pendingDiscard);
@@ -282,9 +314,9 @@ function ChangesPage({ navigate }: ChangesPageProps) {
       />
       <ConfirmDialog
         open={pendingDiscardSelected}
-        title="Discard selected drafts?"
-        message={`${selected.size} pending change${selected.size === 1 ? '' : 's'} will be discarded. This cannot be undone.`}
-        confirmLabel="Discard"
+        title={t('changes.discardSelectedDraftsTitle')}
+        message={t(discardSelectedKey, { count: selected.size })}
+        confirmLabel={t('common.discard')}
         danger
         onConfirm={() => {
           handleDiscardSelected();
@@ -292,20 +324,20 @@ function ChangesPage({ navigate }: ChangesPageProps) {
         }}
         onCancel={() => setPendingDiscardSelected(false)}
       />
-      <PageTitle title="Changes" subtitle="All pending edits across the spaces you contribute to." />
+      <PageTitle title={t('changes.title')} subtitle={t('changes.subtitle')} />
       <div className="max-w-7xl p-6 space-y-4">
         <div className="flex items-center justify-end">
           <div className="flex items-center gap-2">
             <Filter size={14} className="text-muted-foreground" />
             <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as EditChangeType | 'all')}
+              value={typeFilter ?? ''}
+              onChange={(e) => setTypeFilter(e.target.value === '' ? null : (e.target.value as EditChangeType))}
               className="px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
             >
-              <option value="all">All types</option>
-              <option value={EditChangeType.Modify}>Modified</option>
-              <option value={EditChangeType.Create}>Created</option>
-              <option value={EditChangeType.Delete}>Deleted</option>
+              <option value="">{t('changes.filterTypeAll')}</option>
+              <option value={EditChangeType.Modify}>{t('changes.typeModified')}</option>
+              <option value={EditChangeType.Create}>{t('changes.typeCreated')}</option>
+              <option value={EditChangeType.Delete}>{t('changes.typeDeleted')}</option>
             </select>
           </div>
         </div>
@@ -314,12 +346,12 @@ function ChangesPage({ navigate }: ChangesPageProps) {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by file path, space, or description…"
+          placeholder={t('changes.searchPlaceholder')}
           className="w-full px-3 py-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         />
 
         {loading && (
-          <div className="text-sm text-muted-foreground py-8 text-center">Loading…</div>
+          <div className="text-sm text-muted-foreground py-8 text-center">{t('common.loading')}</div>
         )}
 
         {error && !loading && (
@@ -332,18 +364,33 @@ function ChangesPage({ navigate }: ChangesPageProps) {
               type="button"
               onClick={() => setError(null)}
               className="flex-shrink-0 p-0.5 rounded hover:bg-destructive/20 text-destructive/70 hover:text-destructive"
-              title="Dismiss"
-              aria-label="Dismiss error"
+              title={t('common.dismiss')}
+              aria-label={t('changes.dismissError')}
             >
               <X size={14} />
             </button>
           </div>
         )}
 
+        {lastCommitPr && (
+          <CommitPrBanner
+            status={lastCommitPr.status}
+            url={lastCommitPr.url}
+            branch={lastCommitPr.branch}
+            error={lastCommitPr.error}
+            retrying={lastCommitPr.retrying}
+            onRetry={() => {
+              setLastCommitPr((prev) => (prev ? { ...prev, retrying: true } : prev));
+              createPullRequest({ spaceId: lastCommitPr.spaceId });
+            }}
+            onDismiss={() => setLastCommitPr(null)}
+          />
+        )}
+
         {!loading && !error && total === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <Edit3 size={48} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No pending changes.</p>
+            <p className="text-sm">{t('changes.emptyTitle')}</p>
           </div>
         )}
 
@@ -352,12 +399,12 @@ function ChangesPage({ navigate }: ChangesPageProps) {
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="text-xs text-muted-foreground">
                 {filteredTotal === total
-                  ? `${total} change${total === 1 ? '' : 's'}`
-                  : `${filteredTotal} of ${total} shown`}
-                {selected.size > 0 && ` · ${selected.size} selected`}
+                  ? t(totalLabelKey, { count: total })
+                  : t('changes.shownLabel', { shown: filteredTotal, total })}
+                {selected.size > 0 && ` · ${t('changes.selected', { count: selected.size })}`}
                 {selectedSpaceCount > 1 && (
                   <span className="ml-2 text-yellow-600 dark:text-yellow-400">
-                    · spans {selectedSpaceCount} repos — Commit will create one commit per repo
+                    · {t('changes.spansRepos', { count: selectedSpaceCount })}
                   </span>
                 )}
               </div>
@@ -369,13 +416,13 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                   disabled={visibleIds.length === 0}
                 >
                   {allVisibleSelected ? <Check size={12} /> : <Square size={12} />}
-                  {allVisibleSelected ? 'Deselect all' : 'Select all'}
+                  {allVisibleSelected ? t('changes.deselectAll') : t('changes.selectAll')}
                 </button>
                 <input
                   type="text"
                   value={commitMessage}
                   onChange={(e) => setCommitMessage(e.target.value)}
-                  placeholder="Commit message (required)"
+                  placeholder={t('changes.commitPlaceholder')}
                   className="px-2 py-1 text-xs border border-border rounded bg-background text-foreground w-56"
                   disabled={selected.size === 0 || busy}
                   required
@@ -383,26 +430,26 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                 <button
                   type="button"
                   onClick={handleCommitSelected}
-                  disabled={selected.size === 0 || busy || !commitMessage.trim()}
+                  disabled={selected.size === 0 || busy || !trim(commitMessage)}
                   className="flex items-center gap-1 px-3 py-1 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-40"
                   title={
-                    !commitMessage.trim()
-                      ? 'Enter a commit message first'
-                      : 'Commit selected drafts'
+                    !trim(commitMessage)
+                      ? t('changes.commitTitleEmpty')
+                      : t('changes.commitTitle')
                   }
                 >
                   <GitCommit size={12} />
-                  Commit
+                  {t('changes.commitButton')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setPendingDiscardSelected(true)}
                   disabled={selected.size === 0 || busy}
                   className="flex items-center gap-1 px-3 py-1 text-xs font-medium rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40"
-                  title="Discard selected drafts"
+                  title={t('changes.discardSelectedTitle')}
                 >
                   <Trash2 size={12} />
-                  Discard
+                  {t('changes.discardButton')}
                 </button>
               </div>
             </div>
@@ -412,9 +459,9 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                 const isOpen = expandedGroups.has(group.spaceSlug);
                 const groupState = groupSelectionState(group);
                 const groupCheckboxIcon =
-                  groupState === 'all' ? (
+                  groupState === GroupSelectionState.All ? (
                     <Check size={14} className="text-green-600" />
-                  ) : groupState === 'some' ? (
+                  ) : groupState === GroupSelectionState.Some ? (
                     <Minus size={14} className="text-primary" />
                   ) : (
                     <Square size={14} className="text-muted-foreground" />
@@ -424,10 +471,6 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                     key={group.spaceSlug}
                     className="border border-border rounded-lg bg-card overflow-hidden"
                   >
-                    {/* Group header row — split into a select-all checkbox
-                        and an expand/collapse toggle so the user can pick
-                        every draft in one repo without picking every draft
-                        on the page. */}
                     <div className="flex items-center gap-2 px-4 py-2 hover:bg-accent/50">
                       <button
                         type="button"
@@ -436,9 +479,9 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                           toggleGroupSelection(group);
                         }}
                         title={
-                          groupState === 'all'
-                            ? `Deselect all in ${group.spaceSlug}`
-                            : `Select all in ${group.spaceSlug}`
+                          groupState === GroupSelectionState.All
+                            ? t('changes.deselectGroup', { space: group.spaceSlug })
+                            : t('changes.selectGroup', { space: group.spaceSlug })
                         }
                         className="p-0.5 rounded hover:bg-accent flex-shrink-0"
                       >
@@ -479,7 +522,7 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                                   type="button"
                                   onClick={() => toggleOne(d.id)}
                                   className="p-0.5 rounded hover:bg-accent flex-shrink-0 mt-0.5"
-                                  title={isSelected ? 'Deselect' : 'Select'}
+                                  title={isSelected ? t('changes.deselectRow') : t('changes.selectRow')}
                                 >
                                   {isSelected ? (
                                     <Check size={14} className="text-green-600" />
@@ -506,8 +549,8 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                    <span>{new Date(d.updated_at).toLocaleString()}</span>
-                                    {d.branch_id && <span>· branch {d.branch_id.slice(0, 7)}</span>}
+                                    <span>{formatDateTime(d.updated_at)}</span>
+                                    {d.branch_id && <span>· {t('changes.branchLabel', { sha: d.branch_id.slice(0, 7) })}</span>}
                                     {d.description && (
                                       <span className="truncate">· {d.description}</span>
                                     )}
@@ -518,7 +561,7 @@ function ChangesPage({ navigate }: ChangesPageProps) {
                                   onClick={() => setPendingDiscard(d)}
                                   disabled={busy}
                                   className="p-1 rounded text-destructive hover:bg-destructive/10 flex-shrink-0 disabled:opacity-40"
-                                  title="Discard this draft"
+                                  title={t('changes.discardRowTitle')}
                                 >
                                   <Trash2 size={14} />
                                 </button>
@@ -534,9 +577,11 @@ function ChangesPage({ navigate }: ChangesPageProps) {
             </div>
           </>
         )}
+        <RecentCommitsPanel />
       </div>
     </div>
   );
 }
+
 
 export default ChangesPage;

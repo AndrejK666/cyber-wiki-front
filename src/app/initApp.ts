@@ -17,7 +17,9 @@ import { FileMappingApiService } from '@/app/api/FileMappingApiService';
 import { ApiTokensApiService } from '@/app/api/ApiTokensApiService';
 import { ServiceTokensApiService } from '@/app/api/ServiceTokensApiService';
 import { UserSettingsApiService } from '@/app/api/UserSettingsApiService';
+import { GitOpsLogApiService } from '@/app/api/GitOpsLogApiService';
 import { CsrfPlugin } from '@/app/api/CsrfPlugin';
+import { PerformancePlugin } from '@/app/api/PerformancePlugin';
 import { AuthPlugin } from '@/app/api/AuthPlugin';
 import '@/app/events/bootstrapEvents';
 import '@/app/events/wikiEvents';
@@ -28,6 +30,7 @@ import '@/app/events/fileMappingEvents';
 import '@/app/events/apiTokensEvents';
 import '@/app/events/userSettingsEvents';
 import '@/app/events/profileEvents';
+import '@/app/events/gitOpsLogEvents';
 import { registerBootstrapEffects } from '@/app/effects/bootstrapEffects';
 import { registerWikiEffects } from '@/app/effects/wikiEffects';
 import { registerEnrichmentEffects } from '@/app/effects/enrichmentEffects';
@@ -37,6 +40,7 @@ import { registerFileMappingEffects } from '@/app/effects/fileMappingEffects';
 import { registerApiTokensEffects } from '@/app/effects/apiTokensEffects';
 import { registerUserSettingsEffects } from '@/app/effects/userSettingsEffects';
 import { registerProfileEffects } from '@/app/effects/profileEffects';
+import { registerGitOpsLogEffects } from '@/app/effects/gitOpsLogEffects';
 
 // Register API services
 apiRegistry.register(AccountsApiService);
@@ -48,6 +52,7 @@ apiRegistry.register(FileMappingApiService);
 apiRegistry.register(ApiTokensApiService);
 apiRegistry.register(ServiceTokensApiService);
 apiRegistry.register(UserSettingsApiService);
+apiRegistry.register(GitOpsLogApiService);
 
 // Initialize API services
 apiRegistry.initialize({});
@@ -55,6 +60,7 @@ apiRegistry.initialize({});
 // Register auth plugins globally
 apiRegistry.plugins.add(RestProtocol, new AuthPlugin());
 apiRegistry.plugins.add(RestProtocol, new CsrfPlugin());
+apiRegistry.plugins.add(RestProtocol, new PerformancePlugin());
 
 // Create HAI3 app instance
 const app = createHAI3App();
@@ -69,5 +75,6 @@ registerFileMappingEffects();
 registerApiTokensEffects();
 registerUserSettingsEffects();
 registerProfileEffects();
+registerGitOpsLogEffects();
 
 export { app };

@@ -7,10 +7,16 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
 import { FileText, Upload, X } from 'lucide-react';
 import { saveDraft } from '@/app/actions/draftChangeActions';
 import { EditChangeType, type Space } from '@/app/api';
+import { Modal, ModalSize } from '@/app/components/primitives/Modal';
+
+export enum CreateFileMode {
+  Create = 'create',
+  Import = 'import',
+}
 
 interface CreateFileModalProps {
   isOpen: boolean;
@@ -21,7 +27,7 @@ interface CreateFileModalProps {
   initialFolder?: string;
   /** "create" lets the user type a filename and contents; "import" lets them
    *  upload one or more files from disk. Defaults to "create". */
-  initialMode?: 'create' | 'import';
+  initialMode?: CreateFileMode;
   /** Called once the new draft has been created. Receives the full file
    *  path *and* the freshly-minted draft id so the parent can wire the file
    *  viewer up immediately, without waiting for the drafts list to re-fetch.
@@ -41,10 +47,11 @@ export function CreateFileModal({
   onClose,
   space,
   initialFolder,
-  initialMode = 'create',
+  initialMode = CreateFileMode.Create,
   onCreated,
 }: CreateFileModalProps) {
-  const [mode, setMode] = useState<'create' | 'import'>(initialMode);
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<CreateFileMode>(initialMode);
   const [folder, setFolder] = useState(initialFolder ?? '');
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
@@ -109,7 +116,7 @@ export function CreateFileModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === 'create') {
+    if (mode === CreateFileMode.Create) {
       if (!filePath) return;
       setSubmitting(true);
       setError(null);
@@ -122,7 +129,7 @@ export function CreateFileModal({
         originalContent: '',
         modifiedContent: content,
         changeType: EditChangeType.Create,
-        description: `Create ${filePath}`,
+        description: t('createFile.createDescription', { path: filePath }),
       });
       return;
     }
@@ -140,7 +147,7 @@ export function CreateFileModal({
         originalContent: '',
         modifiedContent: u.content,
         changeType: EditChangeType.Create,
-        description: `Import ${u.path}`,
+        description: t('createFile.importDescription', { path: u.path }),
       });
     }
   };
@@ -154,7 +161,7 @@ export function CreateFileModal({
       // We only handle text-ish files: drafts store strings, not binary.
       // Reject anything > 5 MB or that fails to decode as UTF-8.
       if (file.size > 5 * 1024 * 1024) {
-        setError(`Skipped ${file.name} — file is larger than 5 MB`);
+        setError(t('createFile.skippedTooLarge', { name: file.name }));
         continue;
       }
       try {
@@ -162,57 +169,47 @@ export function CreateFileModal({
         const path = f ? `${f}/${file.name}` : file.name;
         next.push({ path, content: text });
       } catch {
-        setError(`Skipped ${file.name} — could not read as text`);
+        setError(t('createFile.skippedNotText', { name: file.name }));
       }
     }
     setUploads((prev) => [...prev, ...next]);
   };
 
   const submitDisabled =
-    submitting || (mode === 'create' ? !filePath : uploads.length === 0);
+    submitting || (mode === CreateFileMode.Create ? !filePath : uploads.length === 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-2xl mx-4 rounded-lg shadow-xl bg-card border border-border max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <FileText size={16} className="text-muted-foreground" />
-            <h3 className="text-base font-semibold text-foreground">Add file</h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded text-muted-foreground hover:bg-muted"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Mode tabs — Create new file vs Import from disk. */}
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      size={ModalSize.X2}
+      title={t('createFile.title')}
+      titleIcon={<FileText size={16} className="text-muted-foreground" />}
+    >
         <div className="flex border-b border-border">
           <button
             type="button"
-            onClick={() => setMode('create')}
+            onClick={() => setMode(CreateFileMode.Create)}
             className={`flex items-center gap-2 px-4 py-2 text-sm border-b-2 transition-colors ${
-              mode === 'create'
+              mode === CreateFileMode.Create
                 ? 'border-primary text-foreground bg-accent/40'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <FileText size={14} />
-            Create new file
+            {t('createFile.tabCreate')}
           </button>
           <button
             type="button"
-            onClick={() => setMode('import')}
+            onClick={() => setMode(CreateFileMode.Import)}
             className={`flex items-center gap-2 px-4 py-2 text-sm border-b-2 transition-colors ${
-              mode === 'import'
+              mode === CreateFileMode.Import
                 ? 'border-primary text-foreground bg-accent/40'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Upload size={14} />
-            Import files
+            {t('createFile.tabImport')}
           </button>
         </div>
 
@@ -225,7 +222,7 @@ export function CreateFileModal({
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              {mode === 'create' ? 'File location' : 'Destination folder'}
+              {mode === CreateFileMode.Create ? t('createFile.fileLocation') : t('createFile.destinationFolder')}
             </label>
             <div className="flex items-center gap-1 text-sm">
               <code className="px-2 py-2 rounded-md bg-muted text-muted-foreground border border-border">
@@ -236,10 +233,10 @@ export function CreateFileModal({
                 type="text"
                 value={folder}
                 onChange={(e) => setFolder(e.target.value)}
-                placeholder="folder/subfolder (optional)"
+                placeholder={t('createFile.folderPlaceholder')}
                 className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              {mode === 'create' && (
+              {mode === CreateFileMode.Create && (
                 <>
                   <span className="text-muted-foreground">/</span>
                   <input
@@ -247,30 +244,30 @@ export function CreateFileModal({
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="filename.md"
+                    placeholder={t('createFile.filenamePlaceholder')}
                     className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     autoFocus
                   />
                 </>
               )}
             </div>
-            {mode === 'create' && filePath && (
+            {mode === CreateFileMode.Create && filePath && (
               <p className="text-xs text-muted-foreground">
-                Will be created at{' '}
+                {t('createFile.willBeCreatedAt')}{' '}
                 <code className="font-mono">{space.slug}/{filePath}</code>
               </p>
             )}
           </div>
 
-          {mode === 'create' && (
+          {mode === CreateFileMode.Create && (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-foreground">
-                File contents
+                {t('createFile.fileContents')}
               </label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="# Hello&#10;&#10;Start writing…"
+                placeholder={t('createFile.contentsPlaceholder')}
                 rows={12}
                 className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                 spellCheck={false}
@@ -278,10 +275,10 @@ export function CreateFileModal({
             </div>
           )}
 
-          {mode === 'import' && (
+          {mode === CreateFileMode.Import && (
             <div className="space-y-2">
               <label className="block text-sm font-medium text-foreground">
-                Files to import
+                {t('createFile.filesToImport')}
               </label>
               <div
                 onDragOver={(e) => {
@@ -296,10 +293,10 @@ export function CreateFileModal({
               >
                 <Upload size={20} className="text-muted-foreground" />
                 <p className="text-sm text-foreground">
-                  Drop text files here, or click to choose
+                  {t('createFile.dropHint')}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Up to 5 MB per file. Binary files are skipped.
+                  {t('createFile.dropFootnote')}
                 </p>
                 <input
                   ref={fileInputRef}
@@ -308,7 +305,6 @@ export function CreateFileModal({
                   className="hidden"
                   onChange={(e) => {
                     void handleFiles(e.target.files);
-                    // Reset so the same file can be picked twice.
                     e.target.value = '';
                   }}
                 />
@@ -324,7 +320,7 @@ export function CreateFileModal({
                       <FileText size={14} className="text-muted-foreground flex-shrink-0" />
                       <code className="flex-1 truncate text-foreground">{u.path}</code>
                       <span className="text-xs text-muted-foreground">
-                        {u.content.length.toLocaleString()} chars
+                        {t('createFile.charCount', { count: u.content.length })}
                       </span>
                       <button
                         type="button"
@@ -332,7 +328,7 @@ export function CreateFileModal({
                           setUploads((prev) => prev.filter((_, j) => j !== i))
                         }
                         className="p-1 rounded text-muted-foreground hover:text-destructive"
-                        title="Remove"
+                        title={t('createFile.removeUpload')}
                       >
                         <X size={12} />
                       </button>
@@ -344,9 +340,9 @@ export function CreateFileModal({
           )}
 
           <p className="text-xs text-muted-foreground">
-            {mode === 'create' ? 'The file' : 'Each file'} is saved as a pending draft.
-            To publish to the repo, commit from the file viewer or the{' '}
-            <a href="#changes" className="underline hover:text-foreground">Changes page</a>.
+            {t('createFile.footerHint', {
+              subject: mode === CreateFileMode.Create ? t('createFile.footerSubjectFile') : t('createFile.footerSubjectEach'),
+            })}
           </p>
 
           <div className="flex items-center justify-end gap-2 pt-2">
@@ -355,7 +351,7 @@ export function CreateFileModal({
               onClick={onClose}
               className="px-3 py-1.5 rounded-md text-sm text-foreground hover:bg-muted"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -363,14 +359,15 @@ export function CreateFileModal({
               className="px-3 py-1.5 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {submitting
-                ? 'Saving…'
-                : mode === 'create'
-                  ? 'Create file'
-                  : `Import ${uploads.length} file${uploads.length === 1 ? '' : 's'}`}
+                ? t('createFile.saving')
+                : mode === CreateFileMode.Create
+                  ? t('createFile.createFile')
+                  : t(uploads.length === 1 ? 'createFile.importFiles' : 'createFile.importFiles_plural', {
+                      count: uploads.length,
+                    })}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

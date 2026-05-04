@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import { eventBus } from '@cyberfabric/react';
+import { eventBus, useTranslation } from '@cyberfabric/react';
 import { SpaceVisibility, type Space, type UpdateSpaceRequest } from '@/app/api';
 import { updateSpace } from '@/app/actions/wikiActions';
+import { Modal, ModalSize } from '@/app/components/primitives/Modal';
 
 interface EditSpaceModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface EditSpaceModalProps {
 }
 
 export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModalProps) {
+  const { t } = useTranslation();
   const getCurrentGitUrl = (s: Space) => {
     if (!s.git_base_url || !s.git_repository_id) return '';
     if (s.git_provider === 'bitbucket_server' && s.git_project_key) {
@@ -93,18 +94,8 @@ export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModa
     (formData.edit_fork_project_key || formData.edit_fork_repo_slug || formData.edit_fork_ssh_url);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl bg-card border">
-        <div className="sticky top-0 flex items-center justify-between px-6 py-4 border-b bg-card">
-          <h2 className="text-xl font-bold">Edit Space</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-all text-muted-foreground">
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
+    <Modal open={isOpen} onClose={onClose} size={ModalSize.X2} title={t('spaceForm.editTitle')}>
+      <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6 overflow-auto">
           {error && (
             <div className="px-4 py-3 rounded-lg text-sm border border-destructive bg-destructive/10 text-destructive">
               {error}
@@ -112,16 +103,16 @@ export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModa
           )}
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Basic Information</h3>
+            <h3 className="text-lg font-semibold">{t('spaceForm.section.basic')}</h3>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Space Key (Slug)</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.fields.spaceKeyEdit')}</label>
               <input type="text" value={space.slug} disabled className="w-full px-3 py-2 rounded-lg border opacity-60 cursor-not-allowed bg-muted" />
-              <p className="text-xs mt-1 text-muted-foreground">Slug cannot be changed</p>
+              <p className="text-xs mt-1 text-muted-foreground">{t('spaceForm.fields.slugDisabledHint')}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Space Name *</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.fields.spaceName')}</label>
               <input
                 type="text"
                 required
@@ -132,157 +123,156 @@ export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModa
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Description</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.fields.description')}</label>
               <textarea
                 value={formData.description}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
                 className="w-full px-3 py-2 rounded-lg border bg-background resize-none"
-                placeholder="Technical documentation for the engineering team"
+                placeholder={t('spaceForm.fields.descriptionPlaceholder')}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Visibility *</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.fields.visibility')}</label>
               <select
                 value={formData.visibility}
                 onChange={e => setFormData({ ...formData, visibility: e.target.value as SpaceVisibility })}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               >
-                <option value="private">Private - Only you and invited users</option>
-                <option value="team">Team - All authenticated users</option>
-                <option value="public">Public - Anyone with the link</option>
+                <option value="private">{t('spaceForm.fields.visibilityPrivateDash')}</option>
+                <option value="team">{t('spaceForm.fields.visibilityTeamDash')}</option>
+                <option value="public">{t('spaceForm.fields.visibilityPublicDash')}</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Git Repository</h3>
+            <h3 className="text-lg font-semibold">{t('spaceForm.section.gitRepository')}</h3>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Git Provider *</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.fields.gitProvider')}</label>
               <select
                 value={formData.git_provider}
                 onChange={e => setFormData({ ...formData, git_provider: e.target.value })}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               >
-                <option value="bitbucket_server">Bitbucket Server</option>
-                <option value="github">GitHub</option>
-                <option value="local_git">Local Git</option>
+                <option value="bitbucket_server">{t('spaceForm.fields.providerBitbucket')}</option>
+                <option value="github">{t('spaceForm.fields.providerGitHub')}</option>
+                <option value="local_git">{t('spaceForm.fields.providerLocal')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Repository URL</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.fields.repositoryUrlEdit')}</label>
               <input
                 type="text"
                 value={formData.git_repository_url}
                 onChange={e => setFormData({ ...formData, git_repository_url: e.target.value })}
-                placeholder="https://git.example.com/projects/PROJ/repos/my-repo/"
+                placeholder={t('spaceForm.fields.repositoryUrlPlaceholder')}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Default Branch</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.fields.defaultBranch')}</label>
               <input
                 type="text"
                 value={formData.git_default_branch}
                 onChange={e => setFormData({ ...formData, git_default_branch: e.target.value })}
-                placeholder="Leave empty to use repository default"
+                placeholder={t('spaceForm.fields.defaultBranchEditPlaceholder')}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               />
-              <p className="text-xs mt-1 text-muted-foreground">Leave empty to use the repository's default branch</p>
+              <p className="text-xs mt-1 text-muted-foreground">{t('spaceForm.fields.defaultBranchEditHint')}</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold">Edit Workflow (Optional)</h3>
+              <h3 className="text-lg font-semibold">{t('spaceForm.editForkSection.title')}</h3>
               <p className="text-sm mt-1 text-muted-foreground">
-                Configure a fork repository to enable in-browser editing and PR creation
+                {t('spaceForm.editForkSection.description')}
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Fork Project Key</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.editForkSection.projectKey')}</label>
               <input
                 type="text"
                 value={formData.edit_fork_project_key}
                 onChange={e => setFormData({ ...formData, edit_fork_project_key: e.target.value })}
-                placeholder="e.g., ~username or PROJECT"
+                placeholder={t('spaceForm.editForkSection.projectKeyPlaceholder')}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Fork Repository Slug</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.editForkSection.repoSlug')}</label>
               <input
                 type="text"
                 value={formData.edit_fork_repo_slug}
                 onChange={e => setFormData({ ...formData, edit_fork_repo_slug: e.target.value })}
-                placeholder="e.g., cyber-repo"
+                placeholder={t('spaceForm.editForkSection.repoSlugPlaceholder')}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Fork SSH URL</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.editForkSection.sshUrl')}</label>
               <input
                 type="text"
                 value={formData.edit_fork_ssh_url}
                 onChange={e => setFormData({ ...formData, edit_fork_ssh_url: e.target.value })}
-                placeholder="ssh://git@git.example.com/~username/repo.git"
+                placeholder={t('spaceForm.editForkSection.sshUrlPlaceholder')}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Local Fork Path (Development)</label>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.editForkSection.localPath')}</label>
               <input
                 type="text"
                 value={formData.edit_fork_local_path}
                 onChange={e => setFormData({ ...formData, edit_fork_local_path: e.target.value })}
-                placeholder="/path/to/local/fork/repo"
+                placeholder={t('spaceForm.editForkSection.localPathPlaceholder')}
                 className="w-full px-3 py-2 rounded-lg border bg-background"
               />
               <p className="text-xs mt-1 text-muted-foreground">
-                Local path to pre-cloned fork repo (for development, overrides SSH URL)
+                {t('spaceForm.editForkSection.localPathHint')}
               </p>
             </div>
 
             {formData.edit_fork_local_path ? (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
                 <span>✓</span>
-                <span>Edit workflow enabled (using local repo)</span>
+                <span>{t('spaceForm.editForkSection.statusLocal')}</span>
               </div>
             ) : forkComplete ? (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
                 <span>✓</span>
-                <span>Edit workflow will be enabled for this space</span>
+                <span>{t('spaceForm.editForkSection.statusReady')}</span>
               </div>
             ) : forkPartial ? (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
                 <span>⚠</span>
-                <span>Fill all three fields to enable edit workflow</span>
+                <span>{t('spaceForm.editForkSection.statusPartial')}</span>
               </div>
             ) : null}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg font-medium bg-muted hover:bg-muted/80 transition-all">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-4 py-2 rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-60"
             >
-              {loading ? 'Updating...' : 'Update Space'}
+              {loading ? t('spaceForm.updating') : t('spaceForm.update')}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

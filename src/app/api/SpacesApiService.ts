@@ -15,6 +15,7 @@ import type {
   CreateSpaceRequest,
   UpdateSpaceRequest,
   MyReviewsResponse,
+  FileBlameResponse,
 } from './wikiTypes';
 
 export class SpacesApiService extends BaseApiService {
@@ -134,6 +135,41 @@ export class SpacesApiService extends BaseApiService {
     });
     return this.protocol(RestProtocol).get<{ content: string }>(
       `../../git-provider/v1/file/?${qs.toString()}`
+    );
+  }
+
+  // Per-line blame (via git-provider API). Mirrors getFileContent's param
+  // shape so callers don't need to relearn anything when toggling between
+  // content and blame views. `spaceId` lets the backend reach the local
+  // worktree-manager bare clone first — that's how blame works for
+  // remote-only providers (Bitbucket Server / GitHub) that don't expose it.
+  async getFileBlame(params: {
+    provider: string;
+    baseUrl: string;
+    projectKey: string;
+    repoSlug: string;
+    filePath: string;
+    branch: string;
+    spaceId?: string;
+  }): Promise<FileBlameResponse> {
+    let projectKey = params.projectKey;
+    let repoSlug = params.repoSlug;
+    if (!projectKey && repoSlug.includes('/')) {
+      const parts = repoSlug.split('/');
+      projectKey = parts[0];
+      repoSlug = parts.slice(1).join('/');
+    }
+    const qs = new URLSearchParams({
+      provider: params.provider,
+      base_url: params.baseUrl,
+      project_key: projectKey,
+      repo_slug: repoSlug,
+      file_path: params.filePath,
+      branch: params.branch,
+    });
+    if (params.spaceId) qs.set('space_id', params.spaceId);
+    return this.protocol(RestProtocol).get<FileBlameResponse>(
+      `../../git-provider/v1/blame/?${qs.toString()}`,
     );
   }
 

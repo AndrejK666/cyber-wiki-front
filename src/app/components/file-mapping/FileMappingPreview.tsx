@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import { BookOpen, Code } from 'lucide-react';
 import { FileTree } from '@/app/components/file/FileTree';
 import { ViewMode, type TreeNode } from '@/app/api';
@@ -26,6 +27,7 @@ export function FileMappingPreview({
   devTree,
   initialMode = ViewMode.Documents,
 }: FileMappingPreviewProps) {
+  const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<ViewMode>(initialMode);
   const tree = viewMode === ViewMode.Documents ? documentTree : devTree ?? documentTree;
 
@@ -33,7 +35,7 @@ export function FileMappingPreview({
     <div>
       <div className="p-2 bg-muted border-b border-border sticky top-0 z-10">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Preview</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('fileMappingPreview.title')}</h3>
           <div className="flex gap-0.5 p-0.5 rounded bg-background">
             <button
               type="button"
@@ -43,7 +45,8 @@ export function FileMappingPreview({
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               }`}
-              title="Documents view"
+              aria-label={t('fileMappingPreview.documentsView')}
+              title={t('fileMappingPreview.documentsView')}
             >
               <BookOpen size={12} />
             </button>
@@ -55,7 +58,8 @@ export function FileMappingPreview({
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               }`}
-              title="Developer view"
+              aria-label={t('fileMappingPreview.developerView')}
+              title={t('fileMappingPreview.developerView')}
             >
               <Code size={12} />
             </button>

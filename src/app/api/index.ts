@@ -4,7 +4,7 @@
  */
 
 export { AccountsApiService } from './AccountsApiService';
-export { UserRole, type ApiUser, type UserExtra, type GetCurrentUserResponse, type LoginRequest, type LoginResponse, type MeResponse } from './types';
+export { UserRole, type ApiUser, type UserExtra, type ExtraJsonValue, type GetCurrentUserResponse, type LoginRequest, type LoginResponse, type MeResponse } from './types';
 
 export { SpacesApiService } from './SpacesApiService';
 export { EnrichmentsApiService } from './EnrichmentsApiService';
@@ -13,6 +13,7 @@ export { UserBranchApiService } from './UserBranchApiService';
 export { FileMappingApiService } from './FileMappingApiService';
 export { ApiTokensApiService } from './ApiTokensApiService';
 export { ServiceTokensApiService } from './ServiceTokensApiService';
+export { GitOpsLogApiService } from './GitOpsLogApiService';
 export {
   Urls,
   SpaceVisibility,
@@ -23,6 +24,8 @@ export {
   DisplayNameSource,
   EnrichmentType,
   EditChangeType,
+  DraftAction,
+  GroupSelectionState,
   CommitAction,
   EnrichmentTab,
   type Space,
@@ -63,6 +66,12 @@ export {
   type SaveDraftChangeResponse,
   type CommitDraftChangesRequest,
   type CommitDraftChangesResult,
+  PRStatus,
+  type BlameLine,
+  type FileBlameResponse,
+  GitOpsLogStatus,
+  type GitOpsLogEntry,
+  type GitOpsLogResponse,
   UserTaskStatus,
   type UserTaskInfo,
   type WorkspaceResponse,

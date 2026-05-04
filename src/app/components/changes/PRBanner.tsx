@@ -7,6 +7,8 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from '@cyberfabric/react';
+import { lowerCase } from 'lodash';
 import { GitPullRequest, ChevronDown, ChevronRight } from 'lucide-react';
 import type { DiffHunk } from '@/app/api';
 
@@ -26,7 +28,7 @@ const STATE_BADGE_CLASSES: Record<string, string> = {
 };
 
 function stateBadgeClasses(prState: string): string {
-  return STATE_BADGE_CLASSES[prState.toLowerCase()] ?? 'bg-muted text-muted-foreground';
+  return STATE_BADGE_CLASSES[lowerCase(prState)] ?? 'bg-muted text-muted-foreground';
 }
 
 function HunkLine({ line }: { line: string }) {
@@ -48,6 +50,7 @@ export function PRBanner({
   prUrl,
   diffHunks,
 }: PRBannerProps) {
+  const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
   const hasDiffHunks = !!diffHunks && diffHunks.length > 0;
 
@@ -80,21 +83,21 @@ export function PRBanner({
             className="font-semibold text-sm text-primary hover:underline"
             onClick={(e) => e.stopPropagation()}
           >
-            PR #{prNumber}
+            {t('prBanner.prNumber', { number: prNumber })}
           </a>
         ) : (
-          <span className="font-semibold text-sm text-primary">PR #{prNumber}</span>
+          <span className="font-semibold text-sm text-primary">{t('prBanner.prNumber', { number: prNumber })}</span>
         )}
         <span className="flex-1 text-sm overflow-hidden text-ellipsis whitespace-nowrap text-foreground">
           {prTitle}
         </span>
         {hasDiffHunks && (
           <span className="text-xs px-2 py-0.5 rounded bg-background text-muted-foreground">
-            {diffHunks.length} {diffHunks.length === 1 ? 'change' : 'changes'}
+            {t(diffHunks.length === 1 ? 'prBanner.changeCount' : 'prBanner.changeCount_plural', { count: diffHunks.length })}
           </span>
         )}
         {prAuthor && (
-          <span className="text-xs text-muted-foreground">by {prAuthor}</span>
+          <span className="text-xs text-muted-foreground">{t('prBanner.byAuthor', { author: prAuthor })}</span>
         )}
         <span
           className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${stateBadgeClasses(prState)}`}

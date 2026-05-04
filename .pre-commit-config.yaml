@@ -19,6 +19,26 @@ repos:
   # Local hooks for project-specific checks
   - repo: local
     hooks:
+      - id: lint
+        name: ESLint
+        entry: npm run lint
+        language: system
+        pass_filenames: false
+      - id: lint-check-disables
+        name: Check for eslint-disable directives
+        entry: npm run lint:check-disables
+        language: system
+        pass_filenames: false
+      - id: type-check
+        name: TypeScript type check
+        entry: npm run type-check
+        language: system
+        pass_filenames: false
+      - id: test
+        name: Run tests
+        entry: npm run test
+        language: system
+        pass_filenames: false
       - id: audit-high
         name: Audit dependencies for high severity vulnerabilities
         entry: npm audit --audit-level=high --omit=dev

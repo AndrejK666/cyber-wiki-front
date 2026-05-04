@@ -6,17 +6,23 @@
  * source view. Used directly in FileViewer, independent of MFE/enrichments.
  */
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
+import { useTranslation } from '@cyberfabric/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MessageSquare } from 'lucide-react';
 import { CodeBlock } from '@/app/components/primitives/CodeBlock';
+import { ViewLoadingFallback } from '@/app/components/loading/ViewLoadingFallback';
 import {
   FileViewMode,
   FileType,
   detectFileType,
   getLanguageLabel,
 } from '@/app/api/wikiTypes';
+
+// Monaco-backed read-only viewer; lazy-loaded so the ~3-4 MB monaco bundle
+// only ships when the user actually opens a non-markdown file.
+const CodeViewer = lazy(() => import('@/app/components/primitives/CodeViewer'));
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -52,6 +58,7 @@ const SourceView: React.FC<SourceViewProps> = ({
   commentLines,
   changedLines,
 }) => {
+  const { t } = useTranslation();
   const lines = content.split('\n');
   return (
     <div className="font-mono text-sm leading-relaxed">
@@ -85,11 +92,11 @@ const SourceView: React.FC<SourceViewProps> = ({
                   className="select-none align-top w-6 px-1 text-center"
                   title={
                     hasComment && isChanged
-                      ? 'Has comment · modified'
+                      ? t('fileRenderer.hasCommentAndModified')
                       : hasComment
-                        ? 'Has comment'
+                        ? t('fileRenderer.hasComment')
                         : isChanged
-                          ? 'Modified'
+                          ? t('fileRenderer.modified')
                           : undefined
                   }
                 >
@@ -97,14 +104,14 @@ const SourceView: React.FC<SourceViewProps> = ({
                     {isChanged && (
                       <span
                         className="inline-block w-1 h-3 rounded-sm bg-yellow-500"
-                        aria-label="Modified"
+                        aria-label={t('fileRenderer.modified')}
                       />
                     )}
                     {hasComment && (
                       <MessageSquare
                         size={10}
                         className="text-blue-500"
-                        aria-label="Has comment"
+                        aria-label={t('fileRenderer.hasComment')}
                       />
                     )}
                   </div>
@@ -219,6 +226,7 @@ const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
   commentLines,
   changedLines,
 }) => {
+  const { t } = useTranslation();
   // When no click handler, render the whole content in a single ReactMarkdown
   // call — preserves block-spanning constructs (lists, blockquotes) better.
   if (!onLineClick) {
@@ -256,7 +264,7 @@ const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
             data-line-end={block.endLine}
             onClick={(e) => onLineClick(block.startLine, { shift: e.shiftKey })}
             className={`relative cursor-pointer rounded -mx-2 px-2 py-0.5 transition-colors ${stateCls}`}
-            title={`Lines ${block.startLine}–${block.endLine} — click to comment, Shift+click to extend range`}
+            title={t('fileRenderer.blockTitle', { start: block.startLine, end: block.endLine })}
           >
             {/* Block-level markers in the left margin. */}
             {(hasComment || isChanged) && (
@@ -264,12 +272,12 @@ const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({
                 {isChanged && (
                   <span
                     className="block w-1 h-3 rounded-sm bg-yellow-500"
-                    aria-label="Modified"
-                    title="Modified"
+                    aria-label={t('fileRenderer.modified')}
+                    title={t('fileRenderer.modified')}
                   />
                 )}
                 {hasComment && (
-                  <MessageSquare size={11} className="text-blue-500" aria-label="Has comment" />
+                  <MessageSquare size={11} className="text-blue-500" aria-label={t('fileRenderer.hasComment')} />
                 )}
               </div>
             )}
@@ -294,6 +302,32 @@ const FileRenderer: React.FC<FileRendererProps> = ({
   commentLines,
   changedLines,
 }) => {
+  const fileName = filePath.split('/').pop() || filePath;
+  const fileType = detectFileType(fileName);
+  const isMarkdown = fileType === FileType.Markdown;
+  const language = getLanguageLabel(fileName);
+
+  // Non-markdown: Monaco is *the* render — syntax highlighting, folding, glyph
+  // margins for comments, change-bar decorations. There's no "raw vs render"
+  // distinction worth surfacing (Monaco renders plain text fine when the
+  // language is unknown), so both Source and Preview converge here.
+  if (!isMarkdown) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <CodeViewer
+          value={content}
+          language={language}
+          selectedLines={selectedLines}
+          onLineClick={onLineClick}
+          commentLines={commentLines}
+          changedLines={changedLines}
+        />
+      </Suspense>
+    );
+  }
+
+  // Markdown: real raw-vs-render split. Source = line-numbered table for
+  // per-line commenting; Preview = rendered HTML via remark.
   if (mode === FileViewMode.Source) {
     return (
       <SourceView
@@ -305,25 +339,15 @@ const FileRenderer: React.FC<FileRendererProps> = ({
       />
     );
   }
-
-  const fileName = filePath.split('/').pop() || filePath;
-  const fileType = detectFileType(fileName);
-
-  if (fileType === FileType.Markdown) {
-    return (
-      <MarkdownPreview
-        content={content}
-        selectedLines={selectedLines}
-        onLineClick={onLineClick}
-        commentLines={commentLines}
-        changedLines={changedLines}
-      />
-    );
-  }
-
-  // YAML, Code, and other non-markdown files — syntax-highlighted preview
-  const language = getLanguageLabel(fileName);
-  return <CodeBlock content={content} language={language} />;
+  return (
+    <MarkdownPreview
+      content={content}
+      selectedLines={selectedLines}
+      onLineClick={onLineClick}
+      commentLines={commentLines}
+      changedLines={changedLines}
+    />
+  );
 };
 
 export default FileRenderer;
