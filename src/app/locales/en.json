@@ -471,7 +471,8 @@
     "showCommentsTitle": "Show enrichments panel",
     "hideCommentsTitle": "Hide enrichments panel",
     "dismissTitle": "Dismiss",
-    "commitMessagePrefill": "Update {fileName}"
+    "commitMessagePrefill": "Update {fileName}",
+    "emptyFile": "This file is empty"
   },
   "fileViewerHeader": {
     "filterAll": "All Changes",
@@ -863,7 +864,13 @@
     "viewComments": "View comments",
     "botReviewers": "Bots",
     "botComment": "{count} bot comment",
-    "botComment_plural": "{count} bot comments"
+    "botComment_plural": "{count} bot comments",
+    "mergeStatus": {
+      "clean": "Ready to merge",
+      "conflict": "Has conflicts",
+      "vetoed": "Needs work",
+      "draft": "Draft"
+    }
   },
   "spaces": {
     "title": "Spaces",

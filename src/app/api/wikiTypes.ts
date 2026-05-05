@@ -462,6 +462,14 @@ export type PREnrichment = {
   diff_hunks?: DiffHunk[];
 };
 
+export enum PRMergeStatus {
+  Clean = 'clean',
+  Conflict = 'conflict',
+  Vetoed = 'vetoed',
+  Draft = 'draft',
+  Unknown = 'unknown',
+}
+
 export type MyReviewPR = {
   space_slug: string;
   space_name: string;
@@ -478,6 +486,9 @@ export type MyReviewPR = {
   comment_count?: number;
   human_comment_count?: number;
   bot_comment_count?: number;
+  draft?: boolean;
+  merge_status?: PRMergeStatus;
+  open_tasks?: number;
 };
 
 export type MyReviewsResponse = {

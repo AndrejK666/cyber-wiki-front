@@ -10,19 +10,23 @@ import {
   AlertCircle,
   Bot,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  CircleDashed,
   Clock,
   ExternalLink,
   Filter,
   GitPullRequest,
   MessageSquare,
   Search,
+  ShieldAlert,
   User,
+  XCircle,
 } from 'lucide-react';
 import { loadPullRequests } from '@/app/actions/wikiActions';
 import { PageTitle } from '@/app/layout';
-import { Urls, type MyReviewPR, type PRReviewer } from '@/app/api';
+import { Urls, PRMergeStatus, type MyReviewPR, type PRReviewer } from '@/app/api';
 import { formatDate } from '@/app/lib/formatDate';
 
 interface PRsPageProps {
@@ -94,6 +98,49 @@ function collectReviewers(prs: MyReviewPR[], botPrefixes: string[]): string[] {
     }
   }
   return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function MergeStatusBadge({ pr }: { pr: MyReviewPR }) {
+  const { t } = useTranslation();
+  const status = pr.merge_status;
+  if (!status || status === PRMergeStatus.Unknown) return null;
+
+  const config: Record<string, { icon: typeof Check; label: string; className: string }> = {
+    [PRMergeStatus.Clean]: {
+      icon: CheckCircle2,
+      label: t('prs.mergeStatus.clean'),
+      className: 'text-green-700 dark:text-green-400 bg-green-500/10 border-green-500/20',
+    },
+    [PRMergeStatus.Conflict]: {
+      icon: XCircle,
+      label: t('prs.mergeStatus.conflict'),
+      className: 'text-red-700 dark:text-red-400 bg-red-500/10 border-red-500/20',
+    },
+    [PRMergeStatus.Vetoed]: {
+      icon: ShieldAlert,
+      label: t('prs.mergeStatus.vetoed'),
+      className: 'text-yellow-700 dark:text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
+    },
+    [PRMergeStatus.Draft]: {
+      icon: CircleDashed,
+      label: t('prs.mergeStatus.draft'),
+      className: 'text-muted-foreground bg-muted border-border',
+    },
+  };
+
+  const c = config[status];
+  if (!c) return null;
+  const Icon = c.icon;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${c.className}`}
+      title={c.label}
+    >
+      <Icon size={11} />
+      {c.label}
+    </span>
+  );
 }
 
 function PRsPage({ navigate }: PRsPageProps) {
@@ -299,6 +346,7 @@ function PRsPage({ navigate }: PRsPageProps) {
                                   <span className="text-xs px-1.5 py-0.5 rounded bg-accent text-accent-foreground flex-shrink-0">
                                     #{pr.number}
                                   </span>
+                                  <MergeStatusBadge pr={pr} />
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                                   <span>{t('prs.byAuthor', { author: pr.author })}</span>
