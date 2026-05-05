@@ -33,7 +33,9 @@ git status && git diff --name-only && git diff --stat
    - API services → Must extend `BaseApiService`, use `RestEndpointProtocol`
    - Events/Actions/Effects → Must follow Flux pattern (Action → Event → Effect → Slice)
    - Pages → Must be in `src/app/pages/`
-   - Components → Must be in `src/app/components/`
+   - Host components → Must be in `src/app/components/`
+   - MFE files → Must be in `src/mfe_packages/<name>/` with relative-only imports
+   - `generated-mfe-manifests.ts` → Must NOT be hand-edited; verify via `npm run generate:mfe-manifests`
    - All files → Import path rules, no `any`/`unknown`, no `eslint-disable`
 5. **Scan all files** - Check each file against all applicable rules
 6. **Collect findings** - Document all critical, high, and medium priority issues
@@ -52,11 +54,13 @@ For each changed file, the agent:
 2. **Identifies file type and purpose**
 3. **Applies matching rule sets** from `cyberwiki-front.md` rules
 4. **Checks for violations** against:
-   - **File placement** - Pages in `src/app/pages/`, components in `src/app/components/`, API in `src/app/api/`, etc.
-   - **Import paths** - Same package: relative; cross-branch: `@/` alias; cross-package: `@cyberfabric/*`
-   - **Flux architecture** - Actions emit events via `eventBus.emit()`, effects listen with `eventBus.on()`, no direct dispatch from components
+   - **File placement** - Host code in `src/app/`; MFE code in `src/mfe_packages/<name>/`. Enrichment domain code must NOT be added back to `src/app/` (lives in `enrichments-mfe`)
+   - **Import paths** - Host: `@/` alias for cross-branch, relative for siblings. **MFE: relative only** (no `@/` alias, no imports from `src/app/` or other MFEs). Cross-package: `@cyberfabric/*`
+   - **Flux architecture** - Actions emit events via `eventBus.emit()`, effects listen with `eventBus.on()`, no direct dispatch from components. MFE host-proxy actions (`hostActions.ts`) emit host-owned events
+   - **Host ↔ MFE boundary** - Communication is ONLY via shared `eventBus`. No direct imports across the boundary
    - **Type safety** - `type` for objects/unions, `interface` for React props, no `any`/`unknown`, no `as unknown as` casts
-   - **API services** - Extend `BaseApiService`, use `RestEndpointProtocol`, `withCredentials: true`
+   - **API services** - Extend `BaseApiService`, use `RestEndpointProtocol`, `withCredentials: true`. MFE API services registered in MFE `init.ts`, NOT in host `initApp.ts`
+   - **MFE bootstrap** - `init.ts` follows: register → initialize → createHAI3 → registerSlice. `lifecycle.tsx` extends `ThemeAwareReactLifecycle`
    - **No telemetry** - No tracking code
    - **No prop drilling** - Use events for state flow
    - **Lodash** - Use lodash equivalents where available
@@ -148,15 +152,31 @@ git diff --stat | tail -1
 // turbo
 Verify that changes comply with FrontX architecture:
 
-### Pre-Diff Checklist
+### Pre-Diff Checklist (General)
 
-- [ ] Import paths follow import rules (`@/` for cross-branch, relative for same package)
-- [ ] Pages/features created under `src/app/`, NOT `src/mfe_packages/`
+- [ ] Import paths follow import rules (host: `@/`; MFE: relative only)
 - [ ] Event-driven architecture (actions emit → effects handle)
-- [ ] API types defined in `src/app/api/wikiTypes.ts`
 - [ ] No `eslint-disable` comments
 - [ ] No `any` or `unknown` in type definitions
 - [ ] No barrel exports unless aggregating 3+ exports
+
+### Pre-Diff Checklist (Host)
+
+- [ ] Pages/features created under `src/app/`
+- [ ] Host API types defined in `src/app/api/wikiTypes.ts`
+- [ ] Enrichment code NOT added back to `src/app/` (lives in `enrichments-mfe`)
+- [ ] `generated-mfe-manifests.ts` is NOT hand-edited
+
+### Pre-Diff Checklist (MFE)
+
+- [ ] MFE files are ONLY in `src/mfe_packages/<name>/`
+- [ ] No `@/` alias imports inside MFE — all relative
+- [ ] No imports from `src/app/` or from another MFE
+- [ ] MFE-local types in `src/api/types.ts` (not host `wikiTypes.ts`)
+- [ ] `init.ts` follows bootstrap pattern: register → initialize → createHAI3 → registerSlice
+- [ ] `lifecycle.tsx` extends ThemeAwareReactLifecycle with constructor(mfeApp) and renderContent(bridge)
+- [ ] Host-proxy events declared in MFE `events/` for type safety
+- [ ] `mfe.json` present; `npm run generate:mfe-manifests` re-run after changes
 
 **Verify file placement:**
 
@@ -167,12 +187,21 @@ git diff --name-only | grep -E "^src/" | head -30
 **Check that:**
 
 - New pages are in `src/app/pages/`
-- New components are in `src/app/components/`
-- New API services are in `src/app/api/`
-- New actions are in `src/app/actions/`
-- New effects are in `src/app/effects/`
-- New events are in `src/app/events/`
-- MFE files are ONLY in `src/mfe_packages/` when explicitly creating an MFE
+- New host components are in `src/app/components/`
+- New host API services are in `src/app/api/`
+- New host actions are in `src/app/actions/`
+- New host effects are in `src/app/effects/`
+- New host events are in `src/app/events/`
+- MFE files are ONLY in `src/mfe_packages/<name>/`
+- No enrichment domain code added to `src/app/` (it belongs in `enrichments-mfe`)
+
+**If MFE files changed, verify manifest is up to date:**
+
+```bash
+npm run generate:mfe-manifests && git diff --name-only src/app/mfe/generated-mfe-manifests.ts
+```
+
+If the generated file has uncommitted changes, stage it.
 
 ## Phase 2: Prepare Commit Message
 
@@ -246,6 +275,7 @@ git status && git diff --cached --stat
 - ✅ ESLint disable guard passes
 - ✅ Tests pass
 - ✅ FrontX architecture checks pass
+- ✅ MFE manifest up to date (if MFE files changed)
 - ✅ Commit size ≤ 4000 LOC
 - ✅ Commit message prepared
 
@@ -258,6 +288,7 @@ git status && git diff --cached --stat
 - ❌ ESLint disable directives found
 - ❌ Tests fail
 - ❌ Architecture violations
+- ❌ MFE manifest out of date
 - ❌ Commit size exceeds limit
 
 **Then:** Fix issues and re-run review
@@ -345,11 +376,17 @@ git log --oneline -n 1 && git show HEAD --stat
 
 ## Common Issues & Fixes
 
-### Wrong File Placement
+### Wrong File Placement (Host)
 
-**Problem:** Page created in `src/mfe_packages/` instead of `src/app/pages/`
+**Problem:** Page or host component created in `src/mfe_packages/` instead of `src/app/`
 
-Move the file to the correct location and update imports.
+Move the file to the correct location under `src/app/` and update imports.
+
+### Wrong File Placement (MFE)
+
+**Problem:** MFE code placed in `src/app/` or uses `@/` alias imports
+
+MFE code must live in `src/mfe_packages/<name>/` and use only relative imports. Move the file and fix all imports to be relative.
 
 ### Direct Dispatch from Component
 
@@ -364,9 +401,9 @@ import { loadSpaces } from '@/app/actions/wikiActions';
 loadSpaces();
 ```
 
-### Import Path Violations
+### Import Path Violations (Host)
 
-**Problem:** Wrong import path style
+**Problem:** Wrong import path style in host code
 
 ```tsx
 // ❌ Wrong — relative path across branches
@@ -374,6 +411,21 @@ import { Space } from '../../api/wikiTypes';
 
 // ✅ Correct — use @/ alias
 import { Space } from '@/app/api';
+```
+
+### Import Path Violations (MFE)
+
+**Problem:** MFE code imports from host or uses `@/` alias
+
+```tsx
+// ❌ Wrong — @/ alias inside MFE
+import { CommentData } from '@/app/api';
+
+// ❌ Wrong — cross-boundary import
+import { CommentData } from '../../../../app/api/wikiTypes';
+
+// ✅ Correct — MFE-local relative import
+import type { CommentData } from '../../api/types';
 ```
 
 ### eventBus.off Does Not Exist
@@ -417,13 +469,14 @@ git commit --amend -m "[TYPE] Corrected description"
 2. 📏 **Max 4000 LOC** - Break large changes into smaller commits
 3. 📝 **Clear messages** - Use `[TYPE] Description` format
 4. 🔍 **No secrets** - Check for hardcoded credentials
-5. 🏗️ **FrontX architecture** - Action → Event → Effect → Slice
-6. 📁 **File placement** - Pages in `src/app/pages/`, never in `src/mfe_packages/`
-7. 🔗 **Import paths** - `@/` for cross-branch, relative for same package
-8. 🚫 **No `any`** - Use proper types
-9. 🚫 **No `eslint-disable`** - Fix the underlying issue
-10. 🚫 **No prop drilling** - Use event-driven state flow
-11. 📦 **lodash over native** - Use lodash equivalents where available
+5. 📁 **File placement** - Host in `src/app/`; MFE in `src/mfe_packages/<name>/`; enrichment domain in `enrichments-mfe`
+6. 🔗 **Import paths** - Host: `@/` for cross-branch; MFE: relative only, no `@/` alias
+7. 📦 **MFE manifest** - Regenerate via `npm run generate:mfe-manifests` after MFE changes
+8. 🚫 **Host ↔ MFE boundary** - Communication only via `eventBus`; no direct imports
+9. 🚫 **No `any`** - Use proper types
+10. 🚫 **No `eslint-disable`** - Fix the underlying issue
+11. 🚫 **No prop drilling** - Use event-driven state flow
+12. 📦 **lodash over native** - Use lodash equivalents where available
 
 ## Useful Commands
 
@@ -455,10 +508,16 @@ npm run type-check
 
 # Architecture check
 npm run arch:check
+
+# MFE manifest regeneration (after adding/removing/changing MFE packages)
+npm run generate:mfe-manifests
 ```
 
 ## References
 
 - **Frontend Rules:** `.ai/rules/cyberwiki-front.md`
-- **API Types:** `src/app/api/wikiTypes.ts`
+- **Host API Types:** `src/app/api/wikiTypes.ts`
+- **MFE API Types:** `src/mfe_packages/<name>/src/api/types.ts`
 - **Architecture:** Event-driven Flux (FrontX/HAI3)
+- **MFE Manifest Generator:** `scripts/generate-mfe-manifests.ts`
+- **MFE Bootstrap Pattern:** See `MFE RULES` section in `.ai/rules/cyberwiki-front.md`

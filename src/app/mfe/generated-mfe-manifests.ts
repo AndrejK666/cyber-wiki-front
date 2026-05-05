@@ -3,6 +3,8 @@
 // Do not edit manually!
 // Regenerate: npm run generate:mfe-manifests
 
+import mfe0 from '@/mfe_packages/enrichments-mfe/mfe.src.json';
+
 import type { Extension, JSONSchema, MfeEntry } from '@cyberfabric/react';
 
 export interface MfeManifestConfig {
@@ -12,7 +14,7 @@ export interface MfeManifestConfig {
 }
 
 export const MFE_MANIFESTS: MfeManifestConfig[] = [
-
+  mfe0,
 ];
 
 // Get all MFE manifests

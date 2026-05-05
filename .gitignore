@@ -1,5 +1,8 @@
 node_modules
 dist
+.__mf__temp
+.mf
+src/mfe_packages/*/mfe.json
 .env
 .env.local
 .env.production

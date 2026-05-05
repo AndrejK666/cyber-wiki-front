@@ -1,0 +1,33 @@
+{
+  "manifest": {
+    "id": "gts.hai3.mfes.mfe.mf_manifest.v1~hai3.enrichments.mfe.manifest.v1",
+    "remoteEntry": "http://localhost:3002/assets/remoteEntry.js",
+    "mfInitKey": ""
+  },
+  "entries": [
+    {
+      "id": "gts.hai3.mfes.mfe.entry.v1~hai3.mfes.mfe.entry_mf.v1~hai3.enrichments.mfe.home.v1",
+      "requiredProperties": [
+        "gts.hai3.mfes.comm.shared_property.v1~hai3.mfes.comm.theme.v1~",
+        "gts.hai3.mfes.comm.shared_property.v1~hai3.mfes.comm.language.v1~"
+      ],
+      "actions": [],
+      "domainActions": [],
+      "manifest": "gts.hai3.mfes.mfe.mf_manifest.v1~hai3.enrichments.mfe.manifest.v1",
+      "exposedModule": "./lifecycle"
+    }
+  ],
+  "extensions": [
+    {
+      "id": "gts.hai3.mfes.ext.extension.v1~hai3.screensets.layout.screen.v1~hai3.enrichments.screens.home.v1",
+      "domain": "gts.hai3.mfes.ext.domain.v1~hai3.screensets.layout.screen.v1",
+      "entry": "gts.hai3.mfes.mfe.entry.v1~hai3.mfes.mfe.entry_mf.v1~hai3.enrichments.mfe.home.v1",
+      "presentation": {
+        "label": "Enrichments",
+        "icon": "lucide:layers",
+        "route": "/enrichments",
+        "order": 200
+      }
+    }
+  ]
+}

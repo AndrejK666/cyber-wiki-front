@@ -41,14 +41,16 @@ Every change is judged against SOLID + DRY. Use these as concrete review questio
 
 ## FILE PLACEMENT (CRITICAL)
 
-### Application pages and features → `src/app/`
+The project has **two code zones**: the **host app** (`src/app/`) and **MFE packages** (`src/mfe_packages/<name>/`). Every file must land in exactly one zone.
 
-All pages, components, actions, effects, events, API services, and layouts MUST be created under `src/app/`.
+### Host app → `src/app/`
 
-```json
+Host-level pages, layout, shared services, cross-cutting events/effects, and any UI that is NOT part of a self-contained domain MFE.
+
+```text
 src/app/
 ├── pages/           # Application pages (LoginPage, ProfilePage, etc.)
-├── api/             # API services (AccountsApiService, etc.)
+├── api/             # Host-level API services (AccountsApiService, SpacesApiService, etc.)
 ├── actions/         # Flux actions (emit events)
 ├── effects/         # Flux effects (listen to events, dispatch to slices)
 ├── events/          # Event type declarations (EventPayloadMap augmentation)
@@ -56,7 +58,34 @@ src/app/
 ├── layout/          # App shell (Header, Sidebar, Layout)
 ├── themes/          # Theme definitions
 ├── icons/           # Icon components
-└── lib/             # Utility functions
+├── lib/             # Utility functions
+├── mfe/             # Auto-generated MFE manifest registry (DO NOT EDIT)
+└── locales/         # Host-level i18n files
+```
+
+### MFE packages → `src/mfe_packages/<name>/`
+
+Self-contained domain micro-frontends. Each MFE is a Module Federation remote with its own API service, events, actions, effects, slices, screens, components, i18n, and build config.
+
+```text
+src/mfe_packages/<name>/
+├── package.json          # MFE-local deps (mirrors host versions)
+├── tsconfig.json         # MFE-local TS config
+├── vite.config.ts        # Module Federation + rollup external shared deps
+├── mfe.json              # MFE manifest (entries, extensions, shared deps)
+├── index.html            # Dev entry point
+└── src/
+    ├── api/              # MFE-owned API service + types
+    ├── actions/          # MFE-owned actions + hostActions.ts (proxy emitters)
+    ├── events/           # MFE-owned events + host-event declarations
+    ├── effects/          # MFE-owned effects
+    ├── slices/           # MFE-owned Redux slices
+    ├── screens/<domain>/ # Screen components + i18n/*.json
+    ├── components/       # MFE-local primitives (Modal, ConfirmDialog, etc.)
+    ├── shared/           # MFE-local hooks (useScreenTranslations, etc.)
+    ├── lib/              # MFE-local utilities (formatDate, useDebugMode, etc.)
+    ├── init.ts           # createHAI3 bootstrap + API/slice/effects registration
+    └── lifecycle.tsx     # ThemeAwareReactLifecycle entry (exposed via MF)
 ```
 
 ### i18n (REQUIRED — string-literals are banned in migrated files)
@@ -117,9 +146,9 @@ For any modal, confirmation, drawer-like dialog, file-import dialog, etc.:
 - Do NOT write your own overlay `<div className="fixed inset-0 ... bg-black/...">` and do NOT call `createPortal` from a feature/page file. Both are linted.
 - Exceptions: state-driven `layout/Popup` and `layout/Overlay` (Redux slices for the global popup/overlay stack).
 
-### Components → `src/app/components/` (domain-grouped)
+### Components → `src/app/components/` (domain-grouped, host only)
 
-Components are organized by **domain**, not by abstraction layer. Generic primitives live in `primitives/`; everything else groups by what it does (space, file, changes, etc.).
+Host-level components are organized by **domain**, not by abstraction layer. Generic primitives live in `primitives/`; everything else groups by what it does (space, file, changes, etc.).
 
 ```text
 src/app/components/
@@ -128,16 +157,15 @@ src/app/components/
 ├── file/            # File viewer ecosystem — FileViewer, FileTree, FileRenderer, MdRenderer, PlainTextContentRenderer, FileViewerHeader, ViewModeSwitcher, CreateFileModal
 ├── file-mapping/    # File-mapping config — FileMappingConfiguration, FileMappingConfigPanel, FileMappingPreview
 ├── changes/         # Drafts + PR — DraftDiffView, PRBanner
-├── enrichments/     # Enrichment UI — EnrichmentPanel, Comment, CommentsTab, ChangesTab, ConflictDetailsDialog, ConflictResolutionWidget, DiffViewer
 ├── loading/         # Loading states — SmartLoadingIndicator, TextLoader, ViewLoadingFallback
 ├── ApiTokensSection.tsx
 └── ThemeProvider.tsx
 ```
 
-- New components **must** be placed in the matching domain folder; only truly cross-cutting providers (theme, root-level sections) sit at the components root.
+- New host components **must** be placed in the matching domain folder; only truly cross-cutting providers (theme, root-level sections) sit at the components root.
 - When creating a new domain (≥3 related components), add a new subfolder rather than letting the root grow.
-- Enrichment **types**, **API service** (`EnrichmentsApiService`), **events**, **actions**, and **effects** live in `src/app/` (under `api/`, `events/`, `actions/`, `effects/`).
-- No MFE packages — `src/mfe_packages/` does not exist.
+- **All enrichment code belongs exclusively to `src/mfe_packages/enrichments-mfe/`.** Any new or modified enrichment screen, component, API service, type, event, action, effect, slice, or i18n key MUST be placed inside the MFE — NEVER in `src/app/`. This includes comments, diffs, PRs, local changes, pending edits, committed changes, conflicts, and git-ops log.
+- Legacy `src/app/components/enrichments/` and `src/app/effects/enrichmentEffects.ts` files remain temporarily for backward compatibility but are superseded by the MFE. New enrichment features MUST NOT be added to the legacy host files.
 
 ## UI KIT DISCOVERY (REQUIRED)
 
@@ -152,15 +180,19 @@ src/app/components/
 
 All state flow follows: **Action → Event → Effect → Slice**
 
-- **Actions** (`src/app/actions/`): pure functions that `eventBus.emit(...)` an event
+This pattern applies identically in the host app (`src/app/`) and inside every MFE (`src/mfe_packages/<name>/src/`).
+
+- **Actions** (`actions/`): pure functions that `eventBus.emit(...)` an event
   - Must return `void` — no `Promise<void>`, no async keyword
   - Fire-and-forget; cannot access store state (no `getState`)
   - Use imperative names: `loadSpaces`, `createSpace`
   - May compose other actions
-- **Events** (`src/app/events/`): type-safe `EventPayloadMap` augmentation via `declare module '@cyberfabric/react'`
+  - **MFE host-proxy actions** (`actions/hostActions.ts`): emit host-owned events that the MFE does NOT handle itself (e.g. `wiki/draft/discard`). Effects for these live in the host.
+- **Events** (`events/`): type-safe `EventPayloadMap` augmentation via `declare module '@cyberfabric/react'`
   - Use past-tense names: `wiki/spaces/loaded`, `wiki/space/created`
   - Every key must exist in `EventPayloadMap`; one payload type per key
-- **Effects** (`src/app/effects/`): `eventBus.on(...)` handlers that call API services and `dispatch(...)` to Redux slices
+  - **MFEs declare host-owned events** they subscribe to in their own events file (for type safety). The host is the source of truth.
+- **Effects** (`effects/`): `eventBus.on(...)` handlers that call API services and `dispatch(...)` to Redux slices
   - Update only their own slice; no business logic
   - May NOT call actions (prevents loops)
   - May emit result/error events to notify UI
@@ -176,9 +208,10 @@ All state flow follows: **Action → Event → Effect → Slice**
 - Base URL pattern: `/api/{domain}/v1`
 - All requests go through Vite proxy to backend at `http://localhost:8888`
 - `withCredentials: true` for session-cookie auth
-- **`apiRegistry.getService(...)` may only be called inside `src/app/effects/`.** Pages and components must go through actions → events → effects. Use `apiRegistry.has(...)` checks only inside effects/bootstrap.
-- **`eventBus.emit(...)` is forbidden inside `src/app/components/` and `src/app/pages/`.** Components import an action from `src/app/actions/` and call it; the action emits.
+- **`apiRegistry.getService(...)` may only be called inside effects** (host `src/app/effects/` or MFE `src/mfe_packages/<name>/src/effects/`). Pages and components must go through actions → events → effects. Use `apiRegistry.has(...)` checks only inside effects/bootstrap.
+- **`eventBus.emit(...)` is forbidden in components and pages.** Components import an action and call it; the action emits.
 - **No mocks in production code** — all data from real backend
+- **MFE API services** are registered in the MFE's `init.ts` (`apiRegistry.register(...)` + `apiRegistry.initialize()`). The host does NOT register MFE-owned services.
 
 ### Styling Rules
 
@@ -190,13 +223,14 @@ All state flow follows: **Action → Event → Effect → Slice**
 
 ### Import Rules
 
-- Same package: relative paths
-- Cross-branch in app: `@/` alias (maps to `src/`)
+- **Inside host `src/app/`:** use `@/` alias (maps to `src/`) for cross-branch imports; relative paths for same-directory siblings.
+- **Inside MFE `src/mfe_packages/<name>/src/`:** ALL imports are relative (no `@/` alias — MFE has its own tsconfig). Never import from `@/app/` or from another MFE.
 - Cross-package: `@cyberfabric/react`, `@cyberfabric/framework`
-- UI components: local `components/primitives/`
+- UI components: local `components/primitives/` (host) or MFE-local `components/primitives/` (MFE)
 - No barrel exports unless aggregating 3+ exports
 - Redux slices: import directly (no barrels)
 - Barrels MUST NOT re-export `*Props` types alongside their components — Props are private to their module. Exception: a Props type genuinely consumed by 2+ outside callers may be re-exported, with a comment explaining why.
+- **Host ↔ MFE boundary:** Communication is ONLY via the shared `eventBus`. No direct imports across the boundary.
 
 ### Type Rules
 
@@ -214,12 +248,90 @@ All state flow follows: **Action → Event → Effect → Slice**
 - Class member order: properties -> constructor -> methods
 - Use lodash for non-trivial object and array operations
 
+## MFE RULES (CRITICAL)
+
+### When to create an MFE
+
+- A domain has ≥3 related screen components, its own API service, and its own event/action/effect layer → extract to MFE.
+- The MFE must be **self-contained**: it owns its API types, API service, events, actions, effects, slices, screens, components, i18n, lib, and build config.
+- Cross-domain events emitted but not handled by the MFE go into `actions/hostActions.ts` — proxy emitters that fire host-owned events.
+
+### MFE bootstrap pattern
+
+Every MFE `init.ts` follows this exact sequence (from demo-mfe reference):
+
+```ts
+apiRegistry.register(MyApiService);
+apiRegistry.initialize();
+const mfeApp = createHAI3().use(effects()).use(queryCacheShared()).build();
+registerSlice(mySlice, initMyEffects);
+export { mfeApp };
+```
+
+Every MFE `lifecycle.tsx` follows:
+
+```ts
+class MyLifecycle extends ThemeAwareReactLifecycle {
+  constructor() { super(mfeApp); }
+  protected renderContent(bridge: ChildMfeBridge): React.ReactNode {
+    return <MyScreen bridge={bridge} />;
+  }
+}
+export default new MyLifecycle();
+```
+
+### MFE vite.config.ts pattern
+
+- Uses `@module-federation/vite` `federation()` plugin.
+- `exposes: { './lifecycle': './src/lifecycle.tsx' }` — single entry point.
+- `shared: {}` — bypass MF 2.0 shared config; host rewrites bare specifiers at runtime.
+- `rollupOptions.external` lists all shared deps (react, @cyberfabric/*, @tanstack/react-query, @reduxjs/toolkit, react-redux).
+- `manifest: true` for mf-manifest.json generation.
+
+### MFE manifest registration
+
+- Each MFE has a `mfe.json` at its root with `manifest`, `entries`, and `extensions`.
+- Running `npm run generate:mfe-manifests` (or `npx tsx scripts/generate-mfe-manifests.ts`) discovers all `src/mfe_packages/*/mfe.json` and regenerates `src/app/mfe/generated-mfe-manifests.ts`.
+- **Never edit `generated-mfe-manifests.ts` by hand.** Always regenerate after adding/removing an MFE.
+
+### MFE i18n
+
+- MFEs use `useScreenTranslations` hook (in `shared/useScreenTranslations.ts`) for screen-local i18n, loaded via `import.meta.glob('./i18n/*.json')`.
+- Components that are loaded inside the host context may also use `useTranslation` from `@cyberfabric/react` — the host and MFE share the same singleton registry.
+- MFE-local translation files live in `src/screens/<domain>/i18n/<lang>.json`.
+
+### MFE types
+
+- MFE-local domain types live in `src/api/types.ts` inside the MFE — NOT in the host's `wikiTypes.ts`.
+- If a type is needed by both host and MFE, it stays in the host's `wikiTypes.ts` and the MFE declares its own compatible copy. The eventBus JSON payloads are the contract — types are structurally matched, not nominally shared.
+
+### Existing MFE packages
+
+| MFE                | Path                                  | Domain                                                                    |
+|--------------------|---------------------------------------|---------------------------------------------------------------------------|
+| `enrichments-mfe`  | `src/mfe_packages/enrichments-mfe/`   | Enrichment panel: comments, diffs, PRs, changes, conflicts, git-ops log   |
+
+### Enrichments domain ownership (CRITICAL)
+
+The enrichments domain is **exclusively owned** by the `enrichments-mfe` MFE. All of the following MUST live inside `src/mfe_packages/enrichments-mfe/`:
+
+- API service and types for `/api/enrichments/v1/` and `/api/wiki/v1/comments/`
+- Events, actions, effects, and slices for enrichments, comments, diffs, PRs, local changes, pending edits, committed changes, conflicts, and git-ops log
+- Screen components (EnrichmentScreen, ChangesTab, CommentsTab, DiffViewer, etc.)
+- MFE-local primitives (Modal, ConfirmDialog), i18n, and lib helpers
+
+Adding enrichment code to `src/app/` is a **STOP CONDITION**. If you need cross-domain communication, use `hostActions.ts` to emit host-owned events.
+
 ## STOP CONDITIONS
 
 - Modifying registry root files
 - Adding new top-level dependencies without approval
 - Bypassing event-driven architecture
 - Direct slice dispatch from components
+- Importing from `@/app/` inside an MFE
+- Importing from one MFE into another MFE
+- Editing `generated-mfe-manifests.ts` by hand
+- Adding new enrichment code to `src/app/` instead of `src/mfe_packages/enrichments-mfe/`
 
 ## BLOCKLIST
 
@@ -232,7 +344,7 @@ All state flow follows: **Action → Event → Effect → Slice**
 - No direct slice dispatch from components (use actions → events → effects)
 - No native helpers where lodash equivalents exist
 - No barrel exports that hide real imports
-- No direct axios/fetch outside BaseApiService
+- No direct axios/fetch outside BaseApiService (exception: MFE `streamEnrichments` uses `fetch` for NDJSON streaming)
 - No hardcoded hex colors or inline styles outside `components/primitives/`
 - **No hand-rolled modal overlays.** The string `fixed inset-0 ... bg-black/` and direct `createPortal` calls are banned outside `components/primitives/`. Use `<Modal>` from `components/primitives/Modal.tsx`. State-driven `layout/Popup` and `layout/Overlay` keep their own implementation but are the only exception.
 - **No hardcoded user-facing strings in the i18n allowlist.** JSX text, `placeholder=`, `title=`, `alt=`, `label=`, `aria-label=`, `aria-description=` MUST be `t('key')` calls in any file listed in the eslint.config.js i18n block. See "i18n (REQUIRED)" above.
@@ -243,26 +355,44 @@ All state flow follows: **Action → Event → Effect → Slice**
 
 ## PRE-DIFF CHECKLIST
 
-- [ ] Import paths follow import rules
-- [ ] Pages/features created under `src/app/`
+### General (applies to both host and MFE code)
+
+- [ ] Import paths follow import rules (host: `@/`; MFE: relative only)
 - [ ] Event-driven architecture (actions emit → effects handle → slice update)
 - [ ] Actions return void, no async keyword
 - [ ] Effects do not call actions
-- [ ] API types defined in `src/app/api/wikiTypes.ts`
 - [ ] All sizes use rem tokens; inline styles only in `components/primitives/`
 - [ ] UI uses configured UI kit (check `frontx.config.json`)
 - [ ] No console errors
 - [ ] TypeScript compiles without errors
 - [ ] `npm run arch:check` passes
 - [ ] `npm run lint:check-disables` passes (zero eslint-disable directives)
-- [ ] User-facing strings go through `t('key')` and live in `src/app/locales/en.json`. If you migrated a new file, you also added it to the i18n allowlist in `eslint.config.js`.
-- [ ] Effects use `t()` from `@/app/lib/i18n` (not `useTranslation`). Every error fallback (`extractErrorMessage(err, FALLBACK)`, `error.message ?? FALLBACK`, `notify.error(FALLBACK)`) reads from `errors.*` in `en.json`.
 - [ ] Dates rendered through `formatDate` / `formatDateTime` / `formatTime`; no inline `toLocale*String()`.
 - [ ] Toasts and developer logs through `notify.*`; no direct `console.*` outside `lib/notify.ts` and `lib/performanceTracker.ts`.
-- [ ] Modals use `<Modal>` from `components/primitives/Modal`; no hand-rolled `fixed inset-0 ... bg-black/...` overlay or `createPortal` from feature/page code.
-- [ ] No `apiRegistry.getService(...)` or `eventBus.emit(...)` in components/pages.
+- [ ] Modals use `<Modal>` from the local `components/primitives/Modal`; no hand-rolled `fixed inset-0 ... bg-black/...` overlay.
+- [ ] No `apiRegistry.getService(...)` or `eventBus.emit(...)` in components/pages/screens.
 - [ ] SOLID: file does one job. SRP-violation? Split. New variant added by extending an enum / config map, not by adding an `if`-branch.
 - [ ] DRY: HTTP codes via `HttpStatus`, dates via `formatDate`, toasts via `notify`, modals via `<Modal>`, translation keys via `t()`. No second copy of an inline literal, regex, or helper — lift it on the second consumer.
+
+### Host-specific
+
+- [ ] Pages/features under `src/app/`; enrichment code is NOT added back to `src/app/` (it lives in the MFE)
+- [ ] API types defined in `src/app/api/wikiTypes.ts`
+- [ ] User-facing strings go through `t('key')` and live in `src/app/locales/en.json`
+- [ ] Effects use `t()` from `@/app/lib/i18n` (not `useTranslation`)
+- [ ] `generated-mfe-manifests.ts` is NOT edited by hand; regenerated via `npm run generate:mfe-manifests`
+
+### MFE-specific
+
+- [ ] MFE files are ONLY inside `src/mfe_packages/<name>/`
+- [ ] No `@/` alias imports — all MFE imports are relative
+- [ ] No imports from `src/app/` or from another MFE
+- [ ] MFE-local API types in `src/api/types.ts` (not host's `wikiTypes.ts`)
+- [ ] MFE i18n in `src/screens/<domain>/i18n/<lang>.json`
+- [ ] `init.ts` follows bootstrap pattern: register → initialize → createHAI3 → registerSlice
+- [ ] `lifecycle.tsx` follows pattern: extends ThemeAwareReactLifecycle, constructor(mfeApp), renderContent(bridge)
+- [ ] Host-proxy events declared in MFE `events/` for type safety
+- [ ] `mfe.json` present and `npm run generate:mfe-manifests` re-run after changes
 
 ## CORRECTION POLICY
 

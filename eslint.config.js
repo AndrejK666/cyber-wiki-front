@@ -29,8 +29,11 @@ export default [
   // Global ignores
   {
     ignores: [
-      'dist/**',
-      'node_modules/**',
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/__mf__temp/**',
+      '**/.__mf__temp/**',
+      '**/.mf/**',
       '**/*.config.*',
       '**/*.cjs',
       'scripts/**',
