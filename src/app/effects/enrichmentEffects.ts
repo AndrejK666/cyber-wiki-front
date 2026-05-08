@@ -10,13 +10,29 @@ import { EnrichmentsApiService } from '@/app/api';
 import { t } from '@/app/lib/i18n';
 
 export function registerEnrichmentEffects(): void {
-  // Load enrichments for a source URI
+  // Load enrichments for a source URI — prefer streaming endpoint for
+  // progressive UX, fall back to the regular GET on error.
   eventBus.on('wiki/enrichments/load', async ({ sourceUri }) => {
     try {
       if (!apiRegistry.has(EnrichmentsApiService)) return;
       const service = apiRegistry.getService(EnrichmentsApiService);
-      const enrichments = await service.getEnrichments(sourceUri);
-      eventBus.emit('wiki/enrichments/loaded', { sourceUri, enrichments });
+
+      let streamed = false;
+      try {
+        for await (const event of service.streamEnrichments(sourceUri)) {
+          if (event.type === 'complete' && event.data) {
+            eventBus.emit('wiki/enrichments/loaded', { sourceUri, enrichments: event.data });
+            streamed = true;
+          }
+        }
+      } catch {
+        // Stream unavailable or failed — fall through to regular fetch.
+      }
+
+      if (!streamed) {
+        const enrichments = await service.getEnrichments(sourceUri);
+        eventBus.emit('wiki/enrichments/loaded', { sourceUri, enrichments });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('errors.failedToLoadEnrichments');
       eventBus.emit('wiki/enrichments/error', { error: message });

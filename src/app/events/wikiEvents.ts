@@ -87,7 +87,7 @@ declare module '@cyberfabric/react' {
     /** Load PRs (optionally filtered by author/reviewer) */
     'wiki/my-reviews/load': { author?: string; reviewer?: string };
     /** My reviews loaded */
-    'wiki/my-reviews/loaded': { pullRequests: MyReviewPR[]; currentGitUsernames: string[] };
+    'wiki/my-reviews/loaded': { pullRequests: MyReviewPR[]; currentGitUsernames: string[]; botUsernames: string[] };
     /** My reviews load error */
     'wiki/my-reviews/error': { error: string };
   }

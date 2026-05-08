@@ -727,27 +727,25 @@ const FileViewer: React.FC<FileViewerProps> = ({
             unsaved draft that actually differs from the on-disk version;
             Blame is shown whenever we have a Space (any committed file).
             In markdown edit, Source = raw textarea, Preview = WYSIWYG. */}
-        {(hasUsefulPreview || (hasUnsavedDraft && draftContent !== null) || !!space) && !isEditMode && (
+        {(hasUsefulPreview || (hasUnsavedDraft && draftContent !== null) || !!space) && !(isEditMode && !isMarkdown) && (
           <div className="flex items-center border border-border rounded overflow-hidden flex-shrink-0">
             {isPreviewable && (
-              <>
-                <button
-                  onClick={() => setViewMode(FileViewMode.Preview)}
-                  className={`p-1.5 transition-colors ${viewMode === FileViewMode.Preview ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
-                  title={t('fileViewer.previewTitle')}
-                >
-                  <Eye size={14} />
-                </button>
-                <button
-                  onClick={() => setViewMode(FileViewMode.Source)}
-                  className={`p-1.5 transition-colors ${viewMode === FileViewMode.Source ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
-                  title={t('fileViewer.sourceTitle')}
-                >
-                  <Code size={14} />
-                </button>
-              </>
+              <button
+                onClick={() => setViewMode(FileViewMode.Preview)}
+                className={`p-1.5 transition-colors ${viewMode === FileViewMode.Preview ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+                title={t('fileViewer.previewTitle')}
+              >
+                <Eye size={14} />
+              </button>
             )}
-            {hasUnsavedDraft && draftContent !== null && content !== null && (
+            <button
+              onClick={() => setViewMode(FileViewMode.Source)}
+              className={`p-1.5 transition-colors ${viewMode === FileViewMode.Source ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+              title={t('fileViewer.sourceTitle')}
+            >
+              <Code size={14} />
+            </button>
+            {!isEditMode && hasUnsavedDraft && draftContent !== null && content !== null && (
               <button
                 onClick={() => setViewMode(FileViewMode.Diff)}
                 className={`p-1.5 transition-colors ${viewMode === FileViewMode.Diff ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
@@ -756,7 +754,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
                 <GitCompare size={14} />
               </button>
             )}
-            {space && (
+            {!isEditMode && space && (
               <button
                 onClick={() => setViewMode(FileViewMode.Blame)}
                 className={`p-1.5 transition-colors ${viewMode === FileViewMode.Blame ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
@@ -861,17 +859,34 @@ const FileViewer: React.FC<FileViewerProps> = ({
         && viewMode !== FileViewMode.Diff
         && viewMode !== FileViewMode.Blame && (
         <div className="flex-1 overflow-auto">
-          <FileRenderer
-            content={
-              draftContent !== null && showDraft ? draftContent : content
-            }
-            filePath={filePath}
-            mode={viewMode}
-            selectedLines={selectedLines}
-            onLineClick={onLineClick}
-            commentLines={commentLines}
-            changedLines={changedLines}
-          />
+          {!(draftContent !== null && showDraft ? draftContent : content) ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-16">
+              <FileText size={40} className="mb-3 opacity-30" />
+              <p className="text-sm">{t('fileViewer.emptyFile')}</p>
+              {spaceId && (
+                <button
+                  type="button"
+                  onClick={handleStartEdit}
+                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded border border-border bg-background text-foreground hover:bg-accent"
+                >
+                  <Pencil size={12} />
+                  {t('fileViewer.edit')}
+                </button>
+              )}
+            </div>
+          ) : (
+            <FileRenderer
+              content={
+                draftContent !== null && showDraft ? draftContent : content
+              }
+              filePath={filePath}
+              mode={viewMode}
+              selectedLines={selectedLines}
+              onLineClick={onLineClick}
+              commentLines={commentLines}
+              changedLines={changedLines}
+            />
+          )}
         </div>
       )}
 

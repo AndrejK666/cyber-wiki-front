@@ -67,6 +67,7 @@ export {
   type CommitDraftChangesRequest,
   type CommitDraftChangesResult,
   PRStatus,
+  PRMergeStatus,
   type BlameLine,
   type FileBlameResponse,
   GitOpsLogStatus,

@@ -8,19 +8,25 @@ import { eventBus, useTranslation } from '@cyberfabric/react';
 import { lowerCase, trim } from 'lodash';
 import {
   AlertCircle,
+  Bot,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  CircleDashed,
   Clock,
   ExternalLink,
   Filter,
   GitPullRequest,
+  MessageSquare,
   Search,
+  ShieldAlert,
   User,
+  XCircle,
 } from 'lucide-react';
 import { loadPullRequests } from '@/app/actions/wikiActions';
 import { PageTitle } from '@/app/layout';
-import { Urls, type MyReviewPR, type PRReviewer } from '@/app/api';
+import { Urls, PRMergeStatus, type MyReviewPR, type PRReviewer } from '@/app/api';
 import { formatDate } from '@/app/lib/formatDate';
 
 interface PRsPageProps {
@@ -79,14 +85,62 @@ function collectAuthors(prs: MyReviewPR[]): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-function collectReviewers(prs: MyReviewPR[]): string[] {
+function isBot(username: string, botPrefixes: string[]): boolean {
+  const lower = lowerCase(username);
+  return botPrefixes.some((prefix) => lower.startsWith(lowerCase(prefix)));
+}
+
+function collectReviewers(prs: MyReviewPR[], botPrefixes: string[]): string[] {
   const set = new Set<string>();
   for (const pr of prs) {
     for (const r of pr.reviewers) {
-      if (r.username) set.add(r.username);
+      if (r.username && !isBot(r.username, botPrefixes)) set.add(r.username);
     }
   }
   return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function MergeStatusBadge({ pr }: { pr: MyReviewPR }) {
+  const { t } = useTranslation();
+  const status = pr.merge_status;
+  if (!status || status === PRMergeStatus.Unknown) return null;
+
+  const config: Record<string, { icon: typeof Check; label: string; className: string }> = {
+    [PRMergeStatus.Clean]: {
+      icon: CheckCircle2,
+      label: t('prs.mergeStatus.clean'),
+      className: 'text-green-700 dark:text-green-400 bg-green-500/10 border-green-500/20',
+    },
+    [PRMergeStatus.Conflict]: {
+      icon: XCircle,
+      label: t('prs.mergeStatus.conflict'),
+      className: 'text-red-700 dark:text-red-400 bg-red-500/10 border-red-500/20',
+    },
+    [PRMergeStatus.Vetoed]: {
+      icon: ShieldAlert,
+      label: t('prs.mergeStatus.vetoed'),
+      className: 'text-yellow-700 dark:text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
+    },
+    [PRMergeStatus.Draft]: {
+      icon: CircleDashed,
+      label: t('prs.mergeStatus.draft'),
+      className: 'text-muted-foreground bg-muted border-border',
+    },
+  };
+
+  const c = config[status];
+  if (!c) return null;
+  const Icon = c.icon;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${c.className}`}
+      title={c.label}
+    >
+      <Icon size={11} />
+      {c.label}
+    </span>
+  );
 }
 
 function PRsPage({ navigate }: PRsPageProps) {
@@ -99,14 +153,16 @@ function PRsPage({ navigate }: PRsPageProps) {
   const [reviewerFilter, setReviewerFilter] = useState('me');
   const [currentGitUsernames, setCurrentGitUsernames] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [botUsernames, setBotUsernames] = useState<string[]>([]);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
 
-    const loadedSub = eventBus.on('wiki/my-reviews/loaded', ({ pullRequests, currentGitUsernames: usernames }) => {
+    const loadedSub = eventBus.on('wiki/my-reviews/loaded', ({ pullRequests, currentGitUsernames: usernames, botUsernames: bots }) => {
       setPrs(pullRequests);
       setCurrentGitUsernames(usernames);
+      setBotUsernames(bots);
       setLoading(false);
       const slugs = new Set(pullRequests.map((pr) => pr.space_slug));
       setExpandedGroups(slugs);
@@ -125,7 +181,7 @@ function PRsPage({ navigate }: PRsPageProps) {
   }, []);
 
   const authors = useMemo(() => collectAuthors(prs), [prs]);
-  const reviewers = useMemo(() => collectReviewers(prs), [prs]);
+  const reviewers = useMemo(() => collectReviewers(prs, botUsernames), [prs, botUsernames]);
 
   const groups = useMemo(() => {
     const q = lowerCase(trim(search));
@@ -290,21 +346,86 @@ function PRsPage({ navigate }: PRsPageProps) {
                                   <span className="text-xs px-1.5 py-0.5 rounded bg-accent text-accent-foreground flex-shrink-0">
                                     #{pr.number}
                                   </span>
+                                  <MergeStatusBadge pr={pr} />
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                                   <span>{t('prs.byAuthor', { author: pr.author })}</span>
                                   {pr.from_branch && <span>· {pr.from_branch}</span>}
                                   <span>· {formatDate(pr.created_at)}</span>
                                 </div>
-                                {pr.reviewers.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5 mt-2">
-                                    {pr.reviewers.map((r) => (
-                                      <ReviewerChip key={r.username} reviewer={r} />
-                                    ))}
-                                  </div>
-                                )}
+                                {pr.reviewers.length > 0 && (() => {
+                                  const humans = pr.reviewers.filter((r) => !isBot(r.username, botUsernames));
+                                  const bots = pr.reviewers.filter((r) => isBot(r.username, botUsernames));
+                                  return (
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                      {humans.map((r) => (
+                                        <ReviewerChip key={r.username} reviewer={r} />
+                                      ))}
+                                      {bots.length > 0 && (
+                                        <span
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground"
+                                          title={bots.map((b) => b.display_name || b.username).join(', ')}
+                                        >
+                                          <Bot size={10} />
+                                          <span>{t('prs.botReviewers')} ({bots.length})</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
+                                {(() => {
+                                  const hasBreakdown = pr.human_comment_count != null || pr.bot_comment_count != null;
+                                  const human = pr.human_comment_count ?? 0;
+                                  const bot = pr.bot_comment_count ?? 0;
+                                  const total = pr.comment_count ?? 0;
+                                  if (hasBreakdown) {
+                                    return (
+                                      <>
+                                        {human > 0 && (
+                                          <a
+                                            href={pr.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-accent text-accent-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                                            title={t('prs.viewComments')}
+                                          >
+                                            <MessageSquare size={12} />
+                                            <span>{human}</span>
+                                          </a>
+                                        )}
+                                        {bot > 0 && (
+                                          <a
+                                            href={pr.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+                                            title={t(bot === 1 ? 'prs.botComment' : 'prs.botComment_plural', { count: bot })}
+                                          >
+                                            <Bot size={12} />
+                                            <span>{bot}</span>
+                                          </a>
+                                        )}
+                                      </>
+                                    );
+                                  }
+                                  if (total > 0) {
+                                    return (
+                                      <a
+                                        href={pr.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-accent text-accent-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                                        title={t('prs.viewComments')}
+                                      >
+                                        <MessageSquare size={12} />
+                                        <span>{total}</span>
+                                      </a>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                                 <button
                                   type="button"
                                   onClick={() => handleOpenSpace(group.spaceSlug)}

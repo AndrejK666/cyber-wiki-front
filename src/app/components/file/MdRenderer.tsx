@@ -403,7 +403,7 @@ function MdRightClickMenu({ children }: { children: ReactNode }) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="block min-h-full">{children}</div>
+        <div className="flex flex-col flex-1 min-h-full">{children}</div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
         <ContextMenuSub>
@@ -514,6 +514,19 @@ function MdLoaded({
   const contentRef = useRef(content);
   contentRef.current = content;
 
+  const focusEditor = useCallback(() => {
+    try {
+      const editor = getInstance();
+      if (!editor) return;
+      editor.action((ctx) => {
+        ctx.get(editorViewCtx).focus();
+        return true;
+      });
+    } catch {
+      // editor not ready
+    }
+  }, [getInstance]);
+
   // When toggling out of source-mode back to WYSIWYG, reseed the editor doc
   // with the current draft text so external textarea edits apply.
   useEffect(() => {
@@ -603,11 +616,11 @@ function MdLoaded({
 
       <div
         className={
-          editorInfo.loading || isSourceMode ? 'hidden' : 'flex-1 overflow-auto'
+          editorInfo.loading || isSourceMode ? 'hidden' : 'flex-1 flex flex-col overflow-auto'
         }
       >
         <MdRightClickMenu>
-          <div className="px-8 py-6 prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-p:leading-relaxed prose-li:leading-relaxed focus-within:outline-none">
+          <div role="textbox" tabIndex={0} onClick={focusEditor} onKeyDown={focusEditor} className="flex-1 flex flex-col px-8 py-6 cursor-text prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-p:leading-relaxed prose-li:leading-relaxed focus-within:outline-none [&>div]:flex-1 [&>div]:flex [&>div]:flex-col [&_.milkdown]:flex-1 [&_.milkdown]:flex [&_.milkdown]:flex-col [&_.ProseMirror]:flex-1 [&_.ProseMirror]:outline-none">
             <Milkdown />
           </div>
         </MdRightClickMenu>

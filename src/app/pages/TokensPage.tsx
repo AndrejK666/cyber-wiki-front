@@ -112,7 +112,9 @@ function TokensPage({ navigate: _navigate }: TokensPageProps) {
     const existing = tokens.find((tok) => tok.service_type === serviceType);
     setEditingService(serviceType);
     setEditForm({
-      baseUrl: existing?.base_url || '',
+      baseUrl: serviceType === ServiceType.CustomHeader
+        ? (existing?.header_name || '')
+        : (existing?.base_url || ''),
       username: existing?.username || '',
       token: '',
       name: existing?.name || '',

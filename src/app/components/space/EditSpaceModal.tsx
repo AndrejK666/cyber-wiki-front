@@ -31,6 +31,7 @@ export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModa
     edit_fork_repo_slug: space.edit_fork_repo_slug || '',
     edit_fork_ssh_url: space.edit_fork_ssh_url || '',
     edit_fork_local_path: space.edit_fork_local_path || '',
+    bot_usernames: (space.bot_usernames || []).join(', '),
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModa
       edit_fork_repo_slug: space.edit_fork_repo_slug || '',
       edit_fork_ssh_url: space.edit_fork_ssh_url || '',
       edit_fork_local_path: space.edit_fork_local_path || '',
+      bot_usernames: (space.bot_usernames || []).join(', '),
     });
     setError(null);
   }, [space]);
@@ -81,6 +83,9 @@ export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModa
       edit_fork_repo_slug: formData.edit_fork_repo_slug || undefined,
       edit_fork_ssh_url: formData.edit_fork_ssh_url || undefined,
       edit_fork_local_path: formData.edit_fork_local_path || undefined,
+      bot_usernames: formData.bot_usernames
+        ? formData.bot_usernames.split(',').map((s) => s.trim()).filter(Boolean)
+        : [],
     };
     updateSpace(space.slug, data);
   };
@@ -258,6 +263,27 @@ export default function EditSpaceModal({ isOpen, onClose, space }: EditSpaceModa
                 <span>{t('spaceForm.editForkSection.statusPartial')}</span>
               </div>
             ) : null}
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">{t('spaceForm.botFilterSection.title')}</h3>
+              <p className="text-sm mt-1 text-muted-foreground">
+                {t('spaceForm.botFilterSection.description')}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">{t('spaceForm.botFilterSection.label')}</label>
+              <input
+                type="text"
+                value={formData.bot_usernames}
+                onChange={e => setFormData({ ...formData, bot_usernames: e.target.value })}
+                placeholder={t('spaceForm.botFilterSection.placeholder')}
+                className="w-full px-3 py-2 rounded-lg border bg-background"
+              />
+              <p className="text-xs mt-1 text-muted-foreground">{t('spaceForm.botFilterSection.hint')}</p>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4">

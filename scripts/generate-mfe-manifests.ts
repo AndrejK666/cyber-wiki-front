@@ -4,8 +4,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'path';
 
 // Generate MFE manifests registry
-// Generates src/app/mfe/generated-mfe-manifests.ts from all mfe.json files
-// found in src/mfe_packages/*/mfe.json
+// Generates src/app/mfe/generated-mfe-manifests.ts from all mfe.src.json files
+// found in src/mfe_packages/*/mfe.src.json
 
 const MFE_PACKAGES_DIR = join(process.cwd(), 'src/mfe_packages');
 const OUTPUT_DIR = join(process.cwd(), 'src/app/mfe');
@@ -46,9 +46,9 @@ function generateManifestRegistry(): void {
         return false;
       }
 
-      const mfeJsonPath = join(MFE_PACKAGES_DIR, dir, 'mfe.json');
+      const mfeSrcJsonPath = join(MFE_PACKAGES_DIR, dir, 'mfe.src.json');
       try {
-        readFileSync(mfeJsonPath);
+        readFileSync(mfeSrcJsonPath);
         return true;
       } catch {
         return false;
@@ -70,7 +70,7 @@ function generateManifestRegistry(): void {
     // Generate import statements
     const imports = mfePackages
       .map((pkg, idx) => {
-        return `import mfe${idx} from '@/mfe_packages/${pkg}/mfe.json';`;
+        return `import mfe${idx} from '@/mfe_packages/${pkg}/mfe.src.json';`;
       })
       .join('\n');
 

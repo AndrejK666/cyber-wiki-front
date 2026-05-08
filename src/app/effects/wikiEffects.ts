@@ -314,15 +314,18 @@ export function registerWikiEffects(): void {
     }
   });
 
-  // Invalidate file cache when a draft is saved/discarded/committed
+  // Invalidate file + blame caches when a draft is saved/discarded/committed
   eventBus.on('wiki/draft/saved', () => {
     fileContentCache.clear();
+    blameCache.clear();
   });
   eventBus.on('wiki/draft/committed', () => {
     fileContentCache.clear();
+    blameCache.clear();
   });
   eventBus.on('wiki/draft/discarded', () => {
     fileContentCache.clear();
+    blameCache.clear();
   });
 
   // Navigate — update hash
@@ -339,6 +342,7 @@ export function registerWikiEffects(): void {
       eventBus.emit('wiki/my-reviews/loaded', {
         pullRequests: data.pull_requests || [],
         currentGitUsernames: data.current_git_usernames || [],
+        botUsernames: data.bot_usernames || [],
       });
     } catch (error) {
       const message = extractErrorMessage(

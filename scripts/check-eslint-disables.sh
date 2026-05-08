@@ -26,6 +26,10 @@ CURRENT_COUNT=$(grep -r "eslint-disable" \
   --include="*.tsx" \
   --include="*.js" \
   --include="*.jsx" \
+  --exclude-dir=dist \
+  --exclude-dir=node_modules \
+  --exclude-dir=.__mf__temp \
+  --exclude-dir=__mf__temp \
   "$PROJECT_ROOT/src" 2>/dev/null | wc -l | tr -d ' ')
 
 echo "ESLint Disable Directive Check"
@@ -42,6 +46,10 @@ if [ "$CURRENT_COUNT" -gt "$BASELINE_COUNT" ]; then
     --include="*.tsx" \
     --include="*.js" \
     --include="*.jsx" \
+    --exclude-dir=dist \
+    --exclude-dir=node_modules \
+    --exclude-dir=.__mf__temp \
+    --exclude-dir=__mf__temp \
     "$PROJECT_ROOT/src" 2>/dev/null | head -20
   echo ""
   echo "Please fix the code instead of disabling ESLint rules."
