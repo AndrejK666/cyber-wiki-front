@@ -7,7 +7,7 @@
 
 import { eventBus, apiRegistry } from '@cyberfabric/react';
 import { toLower } from 'lodash';
-import { SpacesApiService, TreeNodeType, type TreeNode } from '@/app/api';
+import { SpacesApiService } from '@/app/api';
 import { FileMappingApiService } from '@/app/api/FileMappingApiService';
 import { extractErrorMessage } from '@/app/lib/errorMessage';
 import { describeError, notify } from '@/app/lib/notify';
@@ -128,52 +128,22 @@ export function registerWikiEffects(): void {
     }
   });
 
-  // Load file tree (via FileMappingApiService — applies mappings). Used for
-  // root loads only; subfolders lazy-load via `wiki/git-tree/load` because
-  // the wiki tree endpoint currently ignores `path`.
-  eventBus.on('wiki/tree/load', async ({ spaceSlug, mode, path }) => {
+  // Load file tree via FileMappingApiService. Used for root loads AND lazy
+  // subtree loads — the backend applies mappings, visibility, and filters.
+  // The bare /git-provider/v1/tree endpoint is intentionally not used here
+  // because its service-token lookup is stricter than the wiki endpoint's
+  // and rejects valid requests when base_url doesn't match exactly.
+  eventBus.on('wiki/tree/load', async ({ spaceSlug, mode, path, filters }) => {
     try {
       const fmService = apiRegistry.getService(FileMappingApiService);
-      const response = await fmService.getTree({ spaceSlug, mode, path });
+      const response = await fmService.getTree({ spaceSlug, mode, path, filters });
       if (response) {
-        eventBus.emit('wiki/tree/loaded', { tree: response.tree, path });
+        eventBus.emit('wiki/tree/loaded', { tree: response.tree, path, mode });
       }
     } catch (error) {
       eventBus.emit('wiki/tree/error', {
         error: extractErrorMessage(error instanceof Error ? error : null, t('errors.failedToLoadFileTree')),
       });
-    }
-  });
-
-  // Lazy-load a subtree via git-provider directly — applies no mappings, but
-  // returns only the children of the requested folder (the wiki tree
-  // endpoint currently ignores `path` and would return root again).
-  eventBus.on('wiki/git-tree/load', async ({ space, path }) => {
-    try {
-      const spacesService = apiRegistry.getService(SpacesApiService);
-      const result = await spacesService.getRawTree({
-        provider: space.git_provider || '',
-        baseUrl: space.git_base_url || '',
-        projectKey: space.git_project_key || '',
-        repoSlug: space.git_repository_id || '',
-        branch: space.git_default_branch || 'main',
-        path,
-        recursive: false,
-      });
-      // Normalise raw git-provider entries → TreeNode shape, prepending the
-      // parent path when entries arrive as basenames.
-      const prefix = path.endsWith('/') ? path : `${path}/`;
-      const tree: TreeNode[] = (result ?? []).map((item) => {
-        const name = item.name ?? item.path.split('/').pop() ?? item.path;
-        const isAbsolute = item.path.startsWith(prefix);
-        const fullPath = isAbsolute ? item.path : `${prefix}${item.path}`;
-        const type = item.type === 'dir' ? TreeNodeType.Dir : TreeNodeType.File;
-        return { name, path: fullPath, type };
-      });
-      eventBus.emit('wiki/tree/loaded', { tree, path });
-    } catch (error) {
-      const message = extractErrorMessage(error instanceof Error ? error : null, t('errors.failedToLoadSubtree'));
-      eventBus.emit('wiki/tree/error', { error: message });
     }
   });
 

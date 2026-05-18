@@ -583,7 +583,8 @@
   "fileMappingPreview": {
     "title": "Preview",
     "documentsView": "Documents view",
-    "developerView": "Developer view"
+    "developerView": "Developer view",
+    "colName": "Name"
   },
   "fileMapping": {
     "title": "File Mapping Configuration",
@@ -604,13 +605,25 @@
   },
   "fileMappingConfigPanel": {
     "visible": "Visible",
-    "override": "override",
+    "override": "Override",
     "sourceInherit": "Inherit",
     "sourceH1": "H1",
     "sourceH2": "H2",
     "sourceFrontmatter": "Frontmatter",
     "sourceFilename": "Filename",
-    "sourceCustom": "Custom"
+    "sourceCustom": "Custom",
+    "customNamePlaceholder": "Custom name",
+    "childrenInherit": "Inherit",
+    "colFile": "File / Folder",
+    "colVisible": "Visible",
+    "colDisplayAs": "Display As",
+    "colStatus": "Status",
+    "colForChildren": "For Children",
+    "statusFromParent": "← {{source}} (parent)",
+    "statusFromSpace": "← {{source}} (space)",
+    "inheritedFromSpace": "Inherited from space default",
+    "inheritedFromParentTitle": "Inherited from {{path}}",
+    "hiddenByParent": "Hidden by a parent folder"
   },
   "comment": {
     "unknownAuthor": "Unknown",
@@ -776,7 +789,18 @@
       "collapseAll": "Collapse all",
       "addFile": "Add file — create a new file in this repository",
       "noFiles": "No files found",
-      "draftMarker": "Has unsaved changes"
+      "draftMarker": "Has unsaved changes",
+      "commentsCount": "{count} comment(s) on this file",
+      "prsCount": "{count} open PR(s) touching this file",
+      "prBadge": "PR",
+      "colName": "Name",
+      "colComments": "Comments",
+      "colActivity": "Activity",
+      "colSize": "Size",
+      "prsTitle": "Open PRs: #{numbers}",
+      "localChangesCount": "{count} local change(s)",
+      "editsCount": "{count} draft edit(s)",
+      "commitsCount": "{count} commit(s) on user branches"
     },
     "selectDocumentTitle": "Select a document",
     "selectDocumentHint": "Pick any file from the tree on the left to view or edit its contents.",

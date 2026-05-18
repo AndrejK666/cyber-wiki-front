@@ -20,6 +20,9 @@ interface SpaceTreeProps {
   spaceSlug: string;
   spaceName: string;
   viewMode?: ViewMode;
+  /** Space-level file-extension filters; mirrors the file-mapping preview so
+   *  the tree shows the same thing here and in Space Configuration. */
+  filters?: string[];
   selectedPath?: string | null;
   onSelectFile?: (node: TreeNode) => void;
   onViewModeChange?: (mode: ViewMode) => void;
@@ -29,6 +32,7 @@ export function SpaceTree({
   spaceSlug,
   spaceName,
   viewMode = ViewMode.Documents,
+  filters,
   selectedPath,
   onSelectFile,
   onViewModeChange,
@@ -37,10 +41,16 @@ export function SpaceTree({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Stable filter key (null char joiner can't appear in an extension) so we
+  // can include it in the effect deps without re-running on every parent
+  // re-render that produces a fresh array reference with the same contents.
+  const filtersKey = (filters ?? []).join('\0');
+
   useEffect(() => {
     setLoading(true);
     setError(null);
     const loadedSub = eventBus.on('wiki/tree/loaded', (payload) => {
+      if (payload.mode !== viewMode) return;
       setTree(payload.tree ?? []);
       setLoading(false);
     });
@@ -48,12 +58,13 @@ export function SpaceTree({
       setError(payload.error);
       setLoading(false);
     });
-    loadFileTree(spaceSlug, viewMode);
+    const parsedFilters = filtersKey ? filtersKey.split('\0') : [];
+    loadFileTree(spaceSlug, viewMode, undefined, parsedFilters);
     return () => {
       loadedSub.unsubscribe();
       errorSub.unsubscribe();
     };
-  }, [spaceSlug, viewMode]);
+  }, [spaceSlug, viewMode, filtersKey]);
 
   return (
     <div>
@@ -97,7 +108,7 @@ export function SpaceTree({
           <div className="text-sm text-destructive">{error}</div>
           <button
             type="button"
-            onClick={() => loadFileTree(spaceSlug, viewMode)}
+            onClick={() => loadFileTree(spaceSlug, viewMode, undefined, filters)}
             className="text-xs mt-2 underline text-muted-foreground"
           >
             Retry

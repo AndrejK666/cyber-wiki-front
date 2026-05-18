@@ -11,6 +11,10 @@ export function loadEnrichments(sourceUri: string): void {
   eventBus.emit('wiki/enrichments/load', { sourceUri });
 }
 
+export function loadSpaceEnrichments(spaceSlug: string): void {
+  eventBus.emit('wiki/space-enrichments/load', { spaceSlug });
+}
+
 export function loadComments(sourceUri: string): void {
   eventBus.emit('wiki/comments/load', { sourceUri });
 }

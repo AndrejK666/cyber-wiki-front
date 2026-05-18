@@ -8,11 +8,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { eventBus, useTranslation } from '@cyberfabric/react';
 import {
-  FolderOpen,
-  File,
-  FileText,
-  ChevronRight,
-  ChevronDown,
   Loader2,
   AlertCircle,
   Eye,
@@ -29,21 +24,23 @@ import {
   loadSpaces,
   selectSpace,
   loadFileTree,
-  loadGitSubtree,
   openFile,
 } from '@/app/actions/wikiActions';
-import { loadComments } from '@/app/actions/enrichmentActions';
+import { loadComments, loadSpaceEnrichments } from '@/app/actions/enrichmentActions';
 import { loadDrafts } from '@/app/actions/draftChangeActions';
 import {
   FileViewMode,
   Urls,
   type Space,
+  type SpaceEnrichmentsResponse,
   type TreeNode,
   ViewMode,
   buildSourceUri,
 } from '@/app/api';
 import FileViewer from '@/app/components/file/FileViewer';
 import { CreateFileModal } from '@/app/components/file/CreateFileModal';
+import { FileTree } from '@/app/components/file/FileTree';
+import { renderNarrowRow, renderWideRow } from '@/app/components/space/spaceTreeRowExtras';
 
 function collectAllDirPaths(nodes: TreeNode[]): string[] {
   const paths: string[] = [];
@@ -99,6 +96,10 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
   const [draftsLoaded, setDraftsLoaded] = useState(false);
   /** Convenience set of paths with pending drafts (drives tree dot + header badge). */
   const draftPaths = useMemo(() => new Set(draftsByPath.keys()), [draftsByPath]);
+  /** Space-level enrichments map (file_path → { pr_diff, comments, edit, ... }).
+   *  Drives per-row tree badges and the wide-mode extra columns shown when
+   *  no file is open. */
+  const [spaceEnrichments, setSpaceEnrichments] = useState<SpaceEnrichmentsResponse>({});
 
   // Load spaces on mount
   useEffect(() => {
@@ -120,6 +121,23 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
     return () => { sub.unsubscribe(); };
   }, []);
 
+  // Subscribe to space-level enrichments. Drives both the file-tree badges and
+  // the file-list overview shown when no document is open.
+  useEffect(() => {
+    const loaded = eventBus.on('wiki/space-enrichments/loaded', (payload) => {
+      if (!selectedSpace || payload.spaceSlug !== selectedSpace.slug) return;
+      setSpaceEnrichments(payload.enrichments ?? {});
+    });
+    const failed = eventBus.on('wiki/space-enrichments/error', (payload) => {
+      if (!selectedSpace || payload.spaceSlug !== selectedSpace.slug) return;
+      setSpaceEnrichments({});
+    });
+    return () => {
+      loaded.unsubscribe();
+      failed.unsubscribe();
+    };
+  }, [selectedSpace]);
+
   // Listen for space selected event
   useEffect(() => {
     const sub = eventBus.on('wiki/space/selected', ({ space }) => {
@@ -127,7 +145,9 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
       setTree([]);
       setExpandedPaths(new Set());
       setTreeLoading(true);
-      loadFileTree(space.slug, viewMode);
+      setSpaceEnrichments({});
+      loadFileTree(space.slug, viewMode, undefined, space.filters ?? []);
+      loadSpaceEnrichments(space.slug);
 
       // Apply ?file=... and ?line=... from the current URL so deep-links
       // from CommentsPage / ChangesPage open the correct file + selection.
@@ -319,12 +339,17 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
       });
     }
     if (nextToLoad) {
-      loadGitSubtree(selectedSpace, nextToLoad);
+      loadFileTree(
+        selectedSpace.slug,
+        viewMode,
+        nextToLoad,
+        selectedSpace.filters ?? [],
+      );
     } else if (toExpand.length === ancestors.length) {
       // Every ancestor is loaded and expanded — we're done.
       setPendingExpandPath(null);
     }
-  }, [pendingExpandPath, selectedSpace, tree]);
+  }, [pendingExpandPath, selectedSpace, tree, viewMode]);
 
   // Splice lazy-loaded children into the existing tree at a given path.
   const spliceChildren = useCallback((path: string, children: TreeNode[]) => {
@@ -413,7 +438,7 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
     setViewMode(newMode);
     if (selectedSpace) {
       setTreeLoading(true);
-      loadFileTree(selectedSpace.slug, newMode);
+      loadFileTree(selectedSpace.slug, newMode, undefined, selectedSpace.filters ?? []);
     }
   }, [selectedSpace]);
 
@@ -427,19 +452,26 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
         } else {
           next.add(path);
           // Lazy-load subtree if this folder hasn't been expanded yet.
-          // Goes via git-provider directly because the wiki tree endpoint
-          // currently ignores `path` and would return root again.
+          // We use the wiki get_tree endpoint (same one used for root) so
+          // mappings + visibility + filters apply consistently. The bare
+          // git-provider tree endpoint enforces strict service-token matching
+          // that can reject valid requests.
           if (
             selectedSpace &&
             (!node.children || node.children.length === 0)
           ) {
-            loadGitSubtree(selectedSpace, path);
+            loadFileTree(
+              selectedSpace.slug,
+              viewMode,
+              path,
+              selectedSpace.filters ?? [],
+            );
           }
         }
         return next;
       });
     },
-    [selectedSpace],
+    [selectedSpace, viewMode],
   );
 
   const handleSelectFile = useCallback(
@@ -491,11 +523,18 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
     );
   }
 
+  // When no file is open the tree expands to fill the content area and shows
+  // wide rows with enrichment columns (comments / activity / size). With a
+  // file open it collapses back to the narrow sidebar with compact badges.
+  const treeWide = !selectedFilePath;
+
   return (
     <div className="flex h-full overflow-hidden bg-background">
       {/* File Tree Sidebar — toggled from the FileViewer header. */}
       {showTree && (
-      <div className="w-72 flex-shrink-0 border-r border-border flex flex-col overflow-hidden">
+      <div
+        className={`${treeWide ? 'flex-1 min-w-0' : 'w-72 flex-shrink-0'} border-r border-border flex flex-col overflow-hidden`}
+      >
         {/* Space name + view-mode + expand/collapse */}
         <div className="px-3 py-1.5 flex items-center gap-2 border-b border-border">
           <div className="text-xs font-semibold uppercase text-muted-foreground truncate flex-1">
@@ -533,6 +572,17 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
           </button>
         </div>
 
+        {/* Wide-mode column header — shown only when the tree is the full
+            content view (no file selected). */}
+        {treeWide && (
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/40 text-[11px] font-semibold uppercase text-muted-foreground">
+            <span className="flex-1 min-w-0">{t('spaceView.tree.colName')}</span>
+            <span className="w-20 text-center">{t('spaceView.tree.colComments')}</span>
+            <span className="w-40 text-center">{t('spaceView.tree.colActivity')}</span>
+            <span className="w-16 text-right">{t('spaceView.tree.colSize')}</span>
+          </div>
+        )}
+
         {/* Tree content */}
         <div className="flex-1 overflow-y-auto py-1">
           {treeLoading && (
@@ -549,29 +599,30 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
           {!treeLoading && !treeError && tree.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">{t('spaceView.tree.noFiles')}</p>
           )}
-          {!treeLoading &&
-            tree.map((node) => (
-              <TreeNodeItem
-                key={node.path}
-                node={node}
-                level={0}
-                expandedPaths={expandedPaths}
-                selectedPath={selectedFilePath}
-                viewMode={viewMode}
-                draftPaths={draftPaths}
-                onSelect={handleSelectFile}
-              />
-            ))}
+          {!treeLoading && tree.length > 0 && (
+            <FileTree
+              tree={tree}
+              selectedPath={selectedFilePath}
+              expandedPaths={expandedPaths}
+              useRawNames={viewMode === ViewMode.Dev}
+              onSelectFile={handleSelectFile}
+              onToggleFolder={(node) => handleToggleExpand(node)}
+              renderRowExtras={(node) =>
+                treeWide
+                  ? renderWideRow(node, spaceEnrichments, draftPaths, t)
+                  : renderNarrowRow(node, spaceEnrichments, draftPaths, t)
+              }
+            />
+          )}
         </div>
       </div>
       )}
 
-      {/* Content Area — FileViewer manages its own overflow, so the wrapper
-          only constrains width. The earlier `overflow-y-auto` here reserved
-          a scrollbar gutter that showed up as a blank stripe on the right. */}
+      {/* Content Area — only rendered when a file is open; when no file is
+          selected the tree itself takes the full width with extra columns. */}
+      {selectedFilePath && (
       <div className="flex-1 flex min-w-0 overflow-hidden">
-        {selectedFilePath ? (
-          <FileViewer
+        <FileViewer
             spaceSlug={selectedSpace.slug}
             spaceId={selectedSpace.id}
             spaceName={selectedSpace.name}
@@ -605,18 +656,10 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
               setShowEnrichments(true);
             }}
           />
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center text-center px-8 py-12 text-muted-foreground">
-            <FileText size={56} strokeWidth={1.5} className="mb-4 opacity-30" />
-            <p className="text-base font-semibold text-foreground">{t('spaceView.selectDocumentTitle')}</p>
-            <p className="text-sm mt-1 max-w-xs">
-              {t('spaceView.selectDocumentHint')}
-            </p>
-          </div>
-        )}
 
         {/* Enrichments panel is toggled via the FileViewer header now. */}
       </div>
+      )}
 
       {/* Enrichments Panel */}
       {showEnrichments && selectedFilePath && selectedSpace && (
@@ -668,90 +711,5 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
     </div>
   );
 };
-
-// =============================================================================
-// TreeNodeItem — recursive file tree node
-// =============================================================================
-
-interface TreeNodeItemProps {
-  node: TreeNode;
-  level: number;
-  expandedPaths: Set<string>;
-  selectedPath: string | null;
-  viewMode: ViewMode;
-  draftPaths: Set<string>;
-  onSelect: (node: TreeNode) => void;
-}
-
-const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
-  node,
-  level,
-  expandedPaths,
-  selectedPath,
-  viewMode,
-  draftPaths,
-  onSelect,
-}) => {
-  const { t } = useTranslation();
-  const isExpanded = expandedPaths.has(node.path);
-  const isSelected = node.path === selectedPath;
-  const isDir = node.type === 'dir';
-  const hasDraft = !isDir && draftPaths.has(node.path);
-  const displayName = viewMode === ViewMode.Documents && node.display_name
-    ? node.display_name
-    : node.name;
-
-  return (
-    <>
-      <button
-        onClick={() => onSelect(node)}
-        className={`w-full flex items-center gap-1.5 py-1 pr-2 text-sm transition-colors rounded-sm ${
-          isSelected
-            ? 'bg-accent text-accent-foreground'
-            : 'text-foreground hover:bg-muted'
-        }`}
-        style={{ paddingLeft: level * 16 + 8 }}
-      >
-        {isDir ? (
-          isExpanded ? (
-            <ChevronDown size={14} className="flex-shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight size={14} className="flex-shrink-0 text-muted-foreground" />
-          )
-        ) : (
-          <span className="w-3.5 flex-shrink-0" />
-        )}
-        {isDir ? (
-          <FolderOpen size={14} className="flex-shrink-0 text-muted-foreground" />
-        ) : viewMode === ViewMode.Documents ? (
-          <FileText size={14} className="flex-shrink-0 text-muted-foreground" />
-        ) : (
-          <File size={14} className="flex-shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate flex-1 text-left">{displayName}</span>
-        {hasDraft && (
-          <span
-            className="flex-shrink-0 inline-block w-2 h-2 rounded-full bg-yellow-500"
-            title={t('spaceView.tree.draftMarker')}
-            aria-label={t('spaceView.tree.draftMarker')}
-          />
-        )}
-      </button>
-      {isDir && isExpanded && node.children?.map((child) => (
-        <TreeNodeItem
-          key={child.path}
-          node={child}
-          level={level + 1}
-          expandedPaths={expandedPaths}
-          selectedPath={selectedPath}
-          viewMode={viewMode}
-          draftPaths={draftPaths}
-          onSelect={onSelect}
-        />
-      ))}
-    </>
-  );
-};
-
 
 export default SpaceViewPage;

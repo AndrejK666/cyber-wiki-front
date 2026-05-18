@@ -18,9 +18,18 @@ import { TreeNodeType, type TreeNode } from '@/app/api';
 interface FileTreeProps {
   tree: TreeNode[];
   selectedPath?: string | null;
+  /** Initial expanded set when running uncontrolled. Ignored when `expandedPaths` is provided. */
   initiallyExpandedPaths?: string[];
-  /** Render extra controls per row (e.g. visibility checkbox in config mode). */
+  /** Controlled expansion set. When provided, FileTree reads from this and
+   *  defers all toggle bookkeeping to the parent via `onToggleFolder`. */
+  expandedPaths?: Set<string>;
+  /** Render extra controls per row (e.g. visibility checkbox in config mode, draft markers in space view). */
   renderRowExtras?: (node: TreeNode) => ReactNode;
+  /** Extra classes per row (e.g. `opacity-40` for hidden rows in config mode). */
+  getRowClassName?: (node: TreeNode) => string;
+  /** Ignore mapped `display_name` and render raw filenames. Used by the
+   *  file-mapping config panel so users see what they're configuring. */
+  useRawNames?: boolean;
   onSelectFile?: (node: TreeNode) => void;
   onToggleFolder?: (node: TreeNode, isExpanded: boolean) => void;
 }
@@ -40,7 +49,7 @@ const LEVEL_PADDING_CLASS = [
   'pl-[6.75rem]',
 ];
 
-function compareNodes(a: TreeNode, b: TreeNode): number {
+function compareNodes(a: TreeNode, b: TreeNode, useRawNames = false): number {
   // Folders first, then by sort_order if both have it, else by display_name/name.
   const aIsDir = a.type === TreeNodeType.Dir;
   const bIsDir = b.type === TreeNodeType.Dir;
@@ -48,8 +57,8 @@ function compareNodes(a: TreeNode, b: TreeNode): number {
   if (a.sort_order != null && b.sort_order != null && a.sort_order !== b.sort_order) {
     return a.sort_order - b.sort_order;
   }
-  const aName = a.display_name || a.name || a.path;
-  const bName = b.display_name || b.name || b.path;
+  const aName = (useRawNames ? a.name : a.display_name || a.name) || a.path;
+  const bName = (useRawNames ? b.name : b.display_name || b.name) || b.path;
   return aName.localeCompare(bName);
 }
 
@@ -60,6 +69,8 @@ interface FileTreeNodeProps {
   expanded: Set<string>;
   toggle: (path: string, node: TreeNode) => void;
   renderRowExtras?: (node: TreeNode) => ReactNode;
+  getRowClassName?: (node: TreeNode) => string;
+  useRawNames?: boolean;
   onSelectFile?: (node: TreeNode) => void;
 }
 
@@ -70,13 +81,19 @@ function FileTreeNode({
   expanded,
   toggle,
   renderRowExtras,
+  getRowClassName,
+  useRawNames,
   onSelectFile,
 }: FileTreeNodeProps) {
   const isDir = node.type === TreeNodeType.Dir;
   const isExpanded = expanded.has(node.path);
   const isSelected = selectedPath === node.path;
-  const label = node.display_name || node.name || node.path.split('/').pop() || node.path;
-  const sortedChildren = node.children ? [...node.children].sort(compareNodes) : [];
+  const rawLabel = node.name || node.path.split('/').pop() || node.path;
+  const label = useRawNames ? rawLabel : (node.display_name || rawLabel);
+  const extraClass = getRowClassName?.(node) ?? '';
+  const sortedChildren = node.children
+    ? [...node.children].sort((a, b) => compareNodes(a, b, useRawNames))
+    : [];
   const indentClass = LEVEL_PADDING_CLASS[Math.min(level, LEVEL_PADDING_CLASS.length - 1)];
 
   return (
@@ -84,7 +101,7 @@ function FileTreeNode({
       <div
         className={`flex items-center gap-1 ${indentClass} pr-2 py-1 text-sm cursor-pointer hover:bg-accent/50 ${
           isSelected ? 'bg-accent text-accent-foreground' : ''
-        }`}
+        } ${extraClass}`}
         onClick={() => {
           if (isDir) toggle(node.path, node);
           else onSelectFile?.(node);
@@ -130,6 +147,8 @@ function FileTreeNode({
             expanded={expanded}
             toggle={toggle}
             renderRowExtras={renderRowExtras}
+            getRowClassName={getRowClassName}
+            useRawNames={useRawNames}
             onSelectFile={onSelectFile}
           />
         ))}
@@ -141,27 +160,33 @@ export function FileTree({
   tree,
   selectedPath,
   initiallyExpandedPaths,
+  expandedPaths,
   renderRowExtras,
+  getRowClassName,
+  useRawNames,
   onSelectFile,
   onToggleFolder,
 }: FileTreeProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState<Set<string>>(
+  const isControlled = expandedPaths !== undefined;
+  const [internalExpanded, setInternalExpanded] = useState<Set<string>>(
     () => new Set(initiallyExpandedPaths ?? []),
   );
+  const expanded = isControlled ? expandedPaths : internalExpanded;
 
   const toggle = (path: string, node: TreeNode) => {
-    setExpanded((prev) => {
+    const willBeOpen = !expanded.has(path);
+    if (isControlled) {
+      onToggleFolder?.(node, willBeOpen);
+      return;
+    }
+    setInternalExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-        onToggleFolder?.(node, false);
-      } else {
-        next.add(path);
-        onToggleFolder?.(node, true);
-      }
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
       return next;
     });
+    onToggleFolder?.(node, willBeOpen);
   };
 
   if (tree.length === 0) {
@@ -170,7 +195,7 @@ export function FileTree({
     );
   }
 
-  const sorted = [...tree].sort(compareNodes);
+  const sorted = [...tree].sort((a, b) => compareNodes(a, b, useRawNames));
 
   return (
     <div className="overflow-y-auto">
@@ -183,6 +208,8 @@ export function FileTree({
             expanded={expanded}
             toggle={toggle}
             renderRowExtras={renderRowExtras}
+            getRowClassName={getRowClassName}
+            useRawNames={useRawNames}
             onSelectFile={onSelectFile}
           />
         </Fragment>

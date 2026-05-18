@@ -6,6 +6,7 @@
 import '@cyberfabric/react';
 import type {
   EnrichmentsResponse,
+  SpaceEnrichmentsResponse,
   CommentData,
 } from '@/app/api';
 
@@ -17,6 +18,13 @@ declare module '@cyberfabric/react' {
     'wiki/enrichments/loaded': { sourceUri: string; enrichments: EnrichmentsResponse };
     /** Enrichments load error */
     'wiki/enrichments/error': { error: string };
+
+    /** Load enrichments for every file in a space — used for file-tree badges. */
+    'wiki/space-enrichments/load': { spaceSlug: string };
+    /** Space enrichments loaded (map: file_path → enrichments). */
+    'wiki/space-enrichments/loaded': { spaceSlug: string; enrichments: SpaceEnrichmentsResponse };
+    /** Space enrichments load error */
+    'wiki/space-enrichments/error': { spaceSlug: string; error: string };
 
     /** Load comments for a source URI */
     'wiki/comments/load': { sourceUri: string };
