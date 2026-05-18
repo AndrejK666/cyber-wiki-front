@@ -124,9 +124,9 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
         onCancel={() => setPendingSync(false)}
       />
 
-      <div className="bg-background rounded-lg shadow-lg max-w-7xl mx-auto h-[90vh] flex flex-col">
+      <div className="flex flex-col h-[90vh] w-full overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <h2 className="text-lg font-semibold text-foreground">{t('fileMapping.title')}</h2>
           <div className="flex items-center gap-2">
             <button
@@ -155,9 +155,9 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
           </div>
         </div>
 
-        {/* Space-wide settings */}
-        <div className="p-4 border-b border-border bg-muted space-y-3">
-          <div className="flex items-center gap-2">
+        {/* Space-wide settings — single row */}
+        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap p-4 border-b border-border bg-muted shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm font-medium text-foreground">{t('fileMapping.spaceDefault')}</span>
             <select
               value={defaultSource}
@@ -170,13 +170,13 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
                 </option>
               ))}
             </select>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground hidden xl:inline">
               {t('fileMapping.spaceDefaultHint')}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-foreground">{t('fileMapping.filters')}</span>
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+            <span className="text-sm font-medium text-foreground shrink-0">{t('fileMapping.filters')}</span>
             {filters.map((filter) => (
               <span
                 key={filter}
@@ -203,7 +203,7 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
                 }
               }}
               placeholder={t('fileMapping.filterPlaceholder')}
-              className="px-2 py-1 border border-border rounded text-sm w-20 bg-background text-foreground"
+              className="px-2 py-1 border border-border rounded text-sm w-24 bg-background text-foreground"
             />
             <button
               type="button"
@@ -216,15 +216,15 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
         </div>
 
         {/* Two-pane editor */}
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 border-r border-border overflow-auto">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-w-0 border-r border-border overflow-auto">
             <FileMappingConfigPanel
               spaceSlug={space.slug}
               tree={tree}
               mappings={mappingsByPath}
             />
           </div>
-          <div className="w-96 overflow-auto">
+          <div className="w-96 shrink-0 overflow-auto">
             <FileMappingPreview documentTree={tree} />
           </div>
         </div>
