@@ -11,6 +11,7 @@ import {
 } from '@cyberfabric/react';
 import type {
   EnrichmentsResponse,
+  SpaceEnrichmentsResponse,
   CommentData,
 } from './wikiTypes';
 import { EnrichmentType } from './wikiTypes';
@@ -47,6 +48,17 @@ export class EnrichmentsApiService extends BaseApiService {
   ): Promise<EnrichmentsResponse> {
     const params = new URLSearchParams({ source_uri: sourceUri, type });
     return this.protocol(RestProtocol).get<EnrichmentsResponse>(
+      `/enrichments/v1/enrichments/?${params.toString()}`,
+    );
+  }
+
+  /** Space-level enrichments — returns a map keyed by file path. Used to
+   *  drive per-row badges (open PRs, comments, drafts) in the file tree. */
+  async getSpaceEnrichments(
+    spaceSlug: string,
+  ): Promise<SpaceEnrichmentsResponse> {
+    const params = new URLSearchParams({ space_slug: spaceSlug });
+    return this.protocol(RestProtocol).get<SpaceEnrichmentsResponse>(
       `/enrichments/v1/enrichments/?${params.toString()}`,
     );
   }

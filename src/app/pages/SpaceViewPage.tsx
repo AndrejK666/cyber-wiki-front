@@ -8,7 +8,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { eventBus, useTranslation } from '@cyberfabric/react';
 import {
-  FileText,
   Loader2,
   AlertCircle,
   Eye,
@@ -27,12 +26,13 @@ import {
   loadFileTree,
   openFile,
 } from '@/app/actions/wikiActions';
-import { loadComments } from '@/app/actions/enrichmentActions';
+import { loadComments, loadSpaceEnrichments } from '@/app/actions/enrichmentActions';
 import { loadDrafts } from '@/app/actions/draftChangeActions';
 import {
   FileViewMode,
   Urls,
   type Space,
+  type SpaceEnrichmentsResponse,
   type TreeNode,
   ViewMode,
   buildSourceUri,
@@ -40,6 +40,20 @@ import {
 import FileViewer from '@/app/components/file/FileViewer';
 import { CreateFileModal } from '@/app/components/file/CreateFileModal';
 import { FileTree } from '@/app/components/file/FileTree';
+import { SpaceBrowserView } from '@/app/components/space/SpaceBrowserView';
+
+function findHasChildren(tree: TreeNode[], path: string): boolean {
+  for (const n of tree) {
+    if (n.path === path) {
+      return Boolean(n.children && n.children.length > 0);
+    }
+    if (n.children) {
+      const r = findHasChildren(n.children, path);
+      if (n.children.length > 0 && r) return true;
+    }
+  }
+  return false;
+}
 
 function collectAllDirPaths(nodes: TreeNode[]): string[] {
   const paths: string[] = [];
@@ -95,6 +109,11 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
   const [draftsLoaded, setDraftsLoaded] = useState(false);
   /** Convenience set of paths with pending drafts (drives tree dot + header badge). */
   const draftPaths = useMemo(() => new Set(draftsByPath.keys()), [draftsByPath]);
+  /** Space-level enrichments map (file_path → { pr_diff, comments, edit, ... }).
+   *  Drives the no-file-selected file-list view and per-row tree badges. */
+  const [spaceEnrichments, setSpaceEnrichments] = useState<SpaceEnrichmentsResponse>({});
+  /** Browser-view current directory (relative to repo root). Empty = repo root. */
+  const [browserPath, setBrowserPath] = useState<string>('');
 
   // Load spaces on mount
   useEffect(() => {
@@ -116,6 +135,23 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
     return () => { sub.unsubscribe(); };
   }, []);
 
+  // Subscribe to space-level enrichments. Drives both the file-tree badges and
+  // the file-list overview shown when no document is open.
+  useEffect(() => {
+    const loaded = eventBus.on('wiki/space-enrichments/loaded', (payload) => {
+      if (!selectedSpace || payload.spaceSlug !== selectedSpace.slug) return;
+      setSpaceEnrichments(payload.enrichments ?? {});
+    });
+    const failed = eventBus.on('wiki/space-enrichments/error', (payload) => {
+      if (!selectedSpace || payload.spaceSlug !== selectedSpace.slug) return;
+      setSpaceEnrichments({});
+    });
+    return () => {
+      loaded.unsubscribe();
+      failed.unsubscribe();
+    };
+  }, [selectedSpace]);
+
   // Listen for space selected event
   useEffect(() => {
     const sub = eventBus.on('wiki/space/selected', ({ space }) => {
@@ -123,7 +159,10 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
       setTree([]);
       setExpandedPaths(new Set());
       setTreeLoading(true);
+      setSpaceEnrichments({});
+      setBrowserPath('');
       loadFileTree(space.slug, viewMode, undefined, space.filters ?? []);
+      loadSpaceEnrichments(space.slug);
 
       // Apply ?file=... and ?line=... from the current URL so deep-links
       // from CommentsPage / ChangesPage open the correct file + selection.
@@ -566,13 +605,38 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
               onSelectFile={handleSelectFile}
               onToggleFolder={(node) => handleToggleExpand(node)}
               renderRowExtras={(node) => {
-                if (node.type === 'dir' || !draftPaths.has(node.path)) return null;
+                if (node.type === 'dir') return null;
+                const entry = spaceEnrichments[node.path];
+                const commentCount = entry?.comments?.length ?? 0;
+                const prCount = entry?.pr_diff?.length ?? 0;
+                const isDraft = draftPaths.has(node.path);
+                if (!commentCount && !prCount && !isDraft) return null;
                 return (
-                  <span
-                    className="flex-shrink-0 inline-block w-2 h-2 rounded-full bg-yellow-500"
-                    title={t('spaceView.tree.draftMarker')}
-                    aria-label={t('spaceView.tree.draftMarker')}
-                  />
+                  <span className="flex items-center gap-1 flex-shrink-0">
+                    {commentCount > 0 && (
+                      <span
+                        className="inline-flex items-center gap-0.5 px-1 rounded text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                        title={t('spaceView.tree.commentsCount', { count: commentCount })}
+                      >
+                        {commentCount}
+                      </span>
+                    )}
+                    {prCount > 0 && (
+                      <span
+                        className="inline-flex items-center px-1 rounded text-[10px] font-medium bg-purple-600 text-white"
+                        title={t('spaceView.tree.prsCount', { count: prCount })}
+                      >
+                        {t('spaceView.tree.prBadge')}
+                      </span>
+                    )}
+                    {isDraft && (
+                      <span
+                        className="inline-block w-2 h-2 rounded-full bg-yellow-500"
+                        title={t('spaceView.tree.draftMarker')}
+                        aria-label={t('spaceView.tree.draftMarker')}
+                      />
+                    )}
+                  </span>
                 );
               }}
             />
@@ -621,13 +685,30 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
             }}
           />
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center text-center px-8 py-12 text-muted-foreground">
-            <FileText size={56} strokeWidth={1.5} className="mb-4 opacity-30" />
-            <p className="text-base font-semibold text-foreground">{t('spaceView.selectDocumentTitle')}</p>
-            <p className="text-sm mt-1 max-w-xs">
-              {t('spaceView.selectDocumentHint')}
-            </p>
-          </div>
+          <SpaceBrowserView
+            tree={tree}
+            enrichments={spaceEnrichments}
+            browserPath={browserPath}
+            viewMode={viewMode}
+            onSelectFile={handleSelectFile}
+            onNavigatePath={(next) => {
+              setBrowserPath(next);
+              // Lazy-load children when navigating into an unloaded folder.
+              if (
+                next &&
+                selectedSpace &&
+                !findHasChildren(tree, next)
+              ) {
+                setExpandedPaths((prev) => new Set(prev).add(next));
+                loadFileTree(
+                  selectedSpace.slug,
+                  viewMode,
+                  next,
+                  selectedSpace.filters ?? [],
+                );
+              }
+            }}
+          />
         )}
 
         {/* Enrichments panel is toggled via the FileViewer header now. */}

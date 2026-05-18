@@ -48,6 +48,7 @@ export {
   type EditEnrichment,
   type CommitEnrichment,
   type EnrichmentsResponse,
+  type SpaceEnrichmentsResponse,
   FileViewMode,
   FileType,
   DiffType,

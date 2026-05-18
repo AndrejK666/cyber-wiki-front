@@ -39,6 +39,19 @@ export function registerEnrichmentEffects(): void {
     }
   });
 
+  // Load space-level enrichments (drives file-tree badges).
+  eventBus.on('wiki/space-enrichments/load', async ({ spaceSlug }) => {
+    try {
+      if (!apiRegistry.has(EnrichmentsApiService)) return;
+      const service = apiRegistry.getService(EnrichmentsApiService);
+      const enrichments = await service.getSpaceEnrichments(spaceSlug);
+      eventBus.emit('wiki/space-enrichments/loaded', { spaceSlug, enrichments });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('errors.failedToLoadEnrichments');
+      eventBus.emit('wiki/space-enrichments/error', { spaceSlug, error: message });
+    }
+  });
+
   // Load comments
   eventBus.on('wiki/comments/load', async ({ sourceUri }) => {
     try {

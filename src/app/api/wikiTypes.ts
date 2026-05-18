@@ -572,6 +572,10 @@ export type EnrichmentsResponse = {
   commit?: CommitEnrichment[];
 };
 
+/** Space-level enrichment response: keyed by file_path, each value matches
+ *  EnrichmentsResponse. Drives per-row badges in the space file tree. */
+export type SpaceEnrichmentsResponse = Record<string, EnrichmentsResponse>;
+
 export enum EnrichmentTab {
   All = 'all',
   Comments = 'comments',
