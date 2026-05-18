@@ -792,25 +792,20 @@
       "draftMarker": "Has unsaved changes",
       "commentsCount": "{count} comment(s) on this file",
       "prsCount": "{count} open PR(s) touching this file",
-      "prBadge": "PR"
+      "prBadge": "PR",
+      "colName": "Name",
+      "colComments": "Comments",
+      "colActivity": "Activity",
+      "colSize": "Size",
+      "prsTitle": "Open PRs: #{numbers}",
+      "localChangesCount": "{count} local change(s)",
+      "editsCount": "{count} draft edit(s)",
+      "commitsCount": "{count} commit(s) on user branches"
     },
     "selectDocumentTitle": "Select a document",
     "selectDocumentHint": "Pick any file from the tree on the left to view or edit its contents.",
     "enrichments": "Enrichments",
     "closePanel": "Close panel"
-  },
-  "spaceBrowser": {
-    "repoRoot": "Repository root",
-    "up": "Up",
-    "empty": "This folder is empty",
-    "colName": "Name",
-    "colComments": "Comments",
-    "colActivity": "Activity",
-    "colSize": "Size",
-    "prsTitle": "Open PRs: #{numbers}",
-    "localChangesTitle": "{count} local change(s)",
-    "editsTitle": "{count} draft edit(s)",
-    "commitsTitle": "{count} commit(s) on user branches"
   },
   "changes": {
     "title": "Changes",
