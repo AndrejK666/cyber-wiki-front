@@ -136,7 +136,7 @@ export function registerWikiEffects(): void {
       const fmService = apiRegistry.getService(FileMappingApiService);
       const response = await fmService.getTree({ spaceSlug, mode, path, filters });
       if (response) {
-        eventBus.emit('wiki/tree/loaded', { tree: response.tree, path });
+        eventBus.emit('wiki/tree/loaded', { tree: response.tree, path, mode });
       }
     } catch (error) {
       eventBus.emit('wiki/tree/error', {

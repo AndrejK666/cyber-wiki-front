@@ -4,14 +4,12 @@
  * default display-name source, and refresh / sync actions.
  *
  * Per FR cpt-cyberwiki-fr-document-index / cpt-cyberwiki-fr-title-extraction.
- *
- * Inspired by doclab components/spaces/file-mapping/FileMappingConfiguration.tsx.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { eventBus, useTranslation } from '@cyberfabric/react';
 import { trim } from 'lodash';
-import { Plus, X } from 'lucide-react';
+import { BookOpen, Code, Plus, X } from 'lucide-react';
 import { FileMappingConfigPanel } from '@/app/components/file-mapping/FileMappingConfigPanel';
 import { FileMappingPreview } from '@/app/components/file-mapping/FileMappingPreview';
 import { ConfirmDialog } from '@/app/components/primitives/ConfirmDialog';
@@ -44,7 +42,11 @@ interface FileMappingConfigurationProps {
 export function FileMappingConfiguration({ space, onClose }: FileMappingConfigurationProps) {
   const { t } = useTranslation();
   const [mappings, setMappings] = useState<FileMapping[]>([]);
-  const [tree, setTree] = useState<TreeNode[]>([]);
+  // Config panel always renders the raw repo layout — sourced from dev mode.
+  const [devTree, setDevTree] = useState<TreeNode[]>([]);
+  // Preview pane shows the mapped + filtered result — sourced from documents mode.
+  const [documentTree, setDocumentTree] = useState<TreeNode[]>([]);
+  const [previewViewMode, setPreviewViewMode] = useState<ViewMode>(ViewMode.Documents);
   const [filters, setFilters] = useState<string[]>(space.filters || []);
   const [newFilter, setNewFilter] = useState('');
   const [defaultSource, setDefaultSource] = useState<DisplayNameSource>(
@@ -52,31 +54,64 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
   );
   const [pendingSync, setPendingSync] = useState(false);
 
-  // Subscribe to events + initial load
+  // Keep the latest filter set in a ref so event-driven tree reloads pick up
+  // the live value without re-subscribing on every change.
+  const filtersRef = useRef<string[]>(filters);
   useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  const reloadTrees = useCallback(() => {
+    // Dev tree is raw — load with no filters so users can configure everything.
+    loadFileTree(space.slug, ViewMode.Dev, undefined, []);
+    // Documents tree applies the current filters + mapping treatment.
+    loadFileTree(space.slug, ViewMode.Documents, undefined, filtersRef.current);
+  }, [space.slug]);
+
+  // Subscribe to events + initial load. Mapping mutations / refresh / sync /
+  // space updates bust both trees so labels and visibility stay in sync.
+  useEffect(() => {
+    const matchesSpace = (payload: { spaceSlug?: string }) => payload.spaceSlug === space.slug;
+    const reloadIfMatch = (payload: { spaceSlug: string }) => {
+      if (matchesSpace(payload)) reloadTrees();
+    };
     const subs = [
       eventBus.on('wiki/file-mappings/loaded', (payload) => {
-        if (payload.spaceSlug === space.slug) {
-          setMappings(payload.mappings);
-        }
+        if (matchesSpace(payload)) setMappings(payload.mappings);
       }),
       eventBus.on('wiki/tree/loaded', (payload) => {
-        setTree(payload.tree ?? []);
+        if (payload.mode === ViewMode.Dev) {
+          setDevTree(payload.tree ?? []);
+        } else {
+          setDocumentTree(payload.tree ?? []);
+        }
+      }),
+      eventBus.on('wiki/file-mapping/created', reloadIfMatch),
+      eventBus.on('wiki/file-mapping/updated', reloadIfMatch),
+      eventBus.on('wiki/file-mapping/deleted', reloadIfMatch),
+      eventBus.on('wiki/file-mapping/folder-rule-applied', reloadIfMatch),
+      eventBus.on('wiki/file-mappings/refreshed', reloadIfMatch),
+      eventBus.on('wiki/file-mappings/synced', reloadIfMatch),
+      eventBus.on('wiki/space/updated', ({ space: updated }) => {
+        if (updated.slug === space.slug) reloadTrees();
       }),
     ];
     loadFileMappings(space.slug);
+    // Initial dev-mode load. Documents-mode load is triggered by the filter
+    // effect below (which also fires on mount with the current filters).
+    loadFileTree(space.slug, ViewMode.Dev, undefined, []);
     return () => {
       subs.forEach((s) => s.unsubscribe());
     };
-  }, [space.slug]);
+  }, [space.slug, reloadTrees]);
 
-  // Reload tree whenever the active filter set changes (initial mount uses the
-  // space's persisted filters; subsequent reloads use the optimistic local state).
+  // Reload preview tree whenever the active filter set changes.
   useEffect(() => {
     loadFileTree(space.slug, ViewMode.Documents, undefined, filters);
   }, [space.slug, filters]);
 
-  // Index mappings by path (without trailing slash)
+  // Index mappings by path (without trailing slash) so the config panel can
+  // look up the current row state.
   const mappingsByPath = useMemo(() => {
     const map = new Map<string, FileMapping>();
     for (const m of mappings) {
@@ -160,77 +195,115 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
           </div>
         </div>
 
-        {/* Space-wide settings — single row */}
-        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap p-4 border-b border-border bg-muted shrink-0">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-sm font-medium text-foreground">{t('fileMapping.spaceDefault')}</span>
-            <select
-              value={defaultSource}
-              onChange={(e) => handleChangeDefault(e.target.value as DisplayNameSource)}
-              className="px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
-            >
-              {SPACE_DEFAULT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {t(opt.labelKey)}
-                </option>
+        {/* Two-column settings row: editor side (defaults + filters) | preview side (label + view mode) */}
+        <div className="flex border-b border-border bg-muted shrink-0">
+          <div className="flex-1 min-w-0 flex items-center gap-x-6 gap-y-2 flex-wrap p-4 border-r border-border">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm font-medium text-foreground">{t('fileMapping.spaceDefault')}</span>
+              <select
+                value={defaultSource}
+                onChange={(e) => handleChangeDefault(e.target.value as DisplayNameSource)}
+                className="px-2 py-1 text-sm rounded border border-border bg-background text-foreground"
+              >
+                {SPACE_DEFAULT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground hidden xl:inline">
+                {t('fileMapping.spaceDefaultHint')}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+              <span className="text-sm font-medium text-foreground shrink-0">{t('fileMapping.filters')}</span>
+              {filters.map((filter) => (
+                <span
+                  key={filter}
+                  className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-300 rounded text-sm flex items-center gap-1"
+                >
+                  {filter}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFilter(filter)}
+                    className="hover:opacity-80"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
               ))}
-            </select>
-            <span className="text-xs text-muted-foreground hidden xl:inline">
-              {t('fileMapping.spaceDefaultHint')}
-            </span>
+              <input
+                type="text"
+                value={newFilter}
+                onChange={(e) => setNewFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddFilter();
+                  }
+                }}
+                placeholder={t('fileMapping.filterPlaceholder')}
+                className="px-2 py-1 border border-border rounded text-sm w-24 bg-background text-foreground"
+              />
+              <button
+                type="button"
+                onClick={handleAddFilter}
+                className="p-1 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-            <span className="text-sm font-medium text-foreground shrink-0">{t('fileMapping.filters')}</span>
-            {filters.map((filter) => (
-              <span
-                key={filter}
-                className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-300 rounded text-sm flex items-center gap-1"
+          <div className="w-96 shrink-0 flex items-center justify-between gap-2 p-4">
+            <h3 className="text-sm font-semibold text-foreground">{t('fileMappingPreview.title')}</h3>
+            <div className="flex gap-0.5 p-0.5 rounded bg-background">
+              <button
+                type="button"
+                onClick={() => setPreviewViewMode(ViewMode.Documents)}
+                className={`p-1 rounded transition-colors ${
+                  previewViewMode === ViewMode.Documents
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
+                aria-label={t('fileMappingPreview.documentsView')}
+                title={t('fileMappingPreview.documentsView')}
               >
-                {filter}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveFilter(filter)}
-                  className="hover:opacity-80"
-                >
-                  <X size={14} />
-                </button>
-              </span>
-            ))}
-            <input
-              type="text"
-              value={newFilter}
-              onChange={(e) => setNewFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddFilter();
-                }
-              }}
-              placeholder={t('fileMapping.filterPlaceholder')}
-              className="px-2 py-1 border border-border rounded text-sm w-24 bg-background text-foreground"
-            />
-            <button
-              type="button"
-              onClick={handleAddFilter}
-              className="p-1 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-            >
-              <Plus size={16} />
-            </button>
+                <BookOpen size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewViewMode(ViewMode.Dev)}
+                className={`p-1 rounded transition-colors ${
+                  previewViewMode === ViewMode.Dev
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
+                aria-label={t('fileMappingPreview.developerView')}
+                title={t('fileMappingPreview.developerView')}
+              >
+                <Code size={14} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Two-pane editor */}
+        {/* Two-pane editor — both trees start at the same vertical position. */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 min-w-0 border-r border-border overflow-auto">
             <FileMappingConfigPanel
               spaceSlug={space.slug}
-              tree={tree}
+              tree={devTree}
               mappings={mappingsByPath}
             />
           </div>
           <div className="w-96 shrink-0 overflow-auto">
-            <FileMappingPreview documentTree={tree} />
+            <FileMappingPreview
+              viewMode={previewViewMode}
+              documentTree={documentTree}
+              devTree={devTree}
+            />
           </div>
         </div>
       </div>

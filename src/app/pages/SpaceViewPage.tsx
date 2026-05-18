@@ -8,11 +8,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { eventBus, useTranslation } from '@cyberfabric/react';
 import {
-  FolderOpen,
-  File,
   FileText,
-  ChevronRight,
-  ChevronDown,
   Loader2,
   AlertCircle,
   Eye,
@@ -44,6 +40,7 @@ import {
 } from '@/app/api';
 import FileViewer from '@/app/components/file/FileViewer';
 import { CreateFileModal } from '@/app/components/file/CreateFileModal';
+import { FileTree } from '@/app/components/file/FileTree';
 
 function collectAllDirPaths(nodes: TreeNode[]): string[] {
   const paths: string[] = [];
@@ -127,7 +124,7 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
       setTree([]);
       setExpandedPaths(new Set());
       setTreeLoading(true);
-      loadFileTree(space.slug, viewMode);
+      loadFileTree(space.slug, viewMode, undefined, space.filters ?? []);
 
       // Apply ?file=... and ?line=... from the current URL so deep-links
       // from CommentsPage / ChangesPage open the correct file + selection.
@@ -413,7 +410,7 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
     setViewMode(newMode);
     if (selectedSpace) {
       setTreeLoading(true);
-      loadFileTree(selectedSpace.slug, newMode);
+      loadFileTree(selectedSpace.slug, newMode, undefined, selectedSpace.filters ?? []);
     }
   }, [selectedSpace]);
 
@@ -549,19 +546,26 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
           {!treeLoading && !treeError && tree.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">{t('spaceView.tree.noFiles')}</p>
           )}
-          {!treeLoading &&
-            tree.map((node) => (
-              <TreeNodeItem
-                key={node.path}
-                node={node}
-                level={0}
-                expandedPaths={expandedPaths}
-                selectedPath={selectedFilePath}
-                viewMode={viewMode}
-                draftPaths={draftPaths}
-                onSelect={handleSelectFile}
-              />
-            ))}
+          {!treeLoading && tree.length > 0 && (
+            <FileTree
+              tree={tree}
+              selectedPath={selectedFilePath}
+              expandedPaths={expandedPaths}
+              useRawNames={viewMode === ViewMode.Dev}
+              onSelectFile={handleSelectFile}
+              onToggleFolder={(node) => handleToggleExpand(node)}
+              renderRowExtras={(node) => {
+                if (node.type === 'dir' || !draftPaths.has(node.path)) return null;
+                return (
+                  <span
+                    className="flex-shrink-0 inline-block w-2 h-2 rounded-full bg-yellow-500"
+                    title={t('spaceView.tree.draftMarker')}
+                    aria-label={t('spaceView.tree.draftMarker')}
+                  />
+                );
+              }}
+            />
+          )}
         </div>
       </div>
       )}
@@ -668,90 +672,5 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
     </div>
   );
 };
-
-// =============================================================================
-// TreeNodeItem — recursive file tree node
-// =============================================================================
-
-interface TreeNodeItemProps {
-  node: TreeNode;
-  level: number;
-  expandedPaths: Set<string>;
-  selectedPath: string | null;
-  viewMode: ViewMode;
-  draftPaths: Set<string>;
-  onSelect: (node: TreeNode) => void;
-}
-
-const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
-  node,
-  level,
-  expandedPaths,
-  selectedPath,
-  viewMode,
-  draftPaths,
-  onSelect,
-}) => {
-  const { t } = useTranslation();
-  const isExpanded = expandedPaths.has(node.path);
-  const isSelected = node.path === selectedPath;
-  const isDir = node.type === 'dir';
-  const hasDraft = !isDir && draftPaths.has(node.path);
-  const displayName = viewMode === ViewMode.Documents && node.display_name
-    ? node.display_name
-    : node.name;
-
-  return (
-    <>
-      <button
-        onClick={() => onSelect(node)}
-        className={`w-full flex items-center gap-1.5 py-1 pr-2 text-sm transition-colors rounded-sm ${
-          isSelected
-            ? 'bg-accent text-accent-foreground'
-            : 'text-foreground hover:bg-muted'
-        }`}
-        style={{ paddingLeft: level * 16 + 8 }}
-      >
-        {isDir ? (
-          isExpanded ? (
-            <ChevronDown size={14} className="flex-shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight size={14} className="flex-shrink-0 text-muted-foreground" />
-          )
-        ) : (
-          <span className="w-3.5 flex-shrink-0" />
-        )}
-        {isDir ? (
-          <FolderOpen size={14} className="flex-shrink-0 text-muted-foreground" />
-        ) : viewMode === ViewMode.Documents ? (
-          <FileText size={14} className="flex-shrink-0 text-muted-foreground" />
-        ) : (
-          <File size={14} className="flex-shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate flex-1 text-left">{displayName}</span>
-        {hasDraft && (
-          <span
-            className="flex-shrink-0 inline-block w-2 h-2 rounded-full bg-yellow-500"
-            title={t('spaceView.tree.draftMarker')}
-            aria-label={t('spaceView.tree.draftMarker')}
-          />
-        )}
-      </button>
-      {isDir && isExpanded && node.children?.map((child) => (
-        <TreeNodeItem
-          key={child.path}
-          node={child}
-          level={level + 1}
-          expandedPaths={expandedPaths}
-          selectedPath={selectedPath}
-          viewMode={viewMode}
-          draftPaths={draftPaths}
-          onSelect={onSelect}
-        />
-      ))}
-    </>
-  );
-};
-
 
 export default SpaceViewPage;

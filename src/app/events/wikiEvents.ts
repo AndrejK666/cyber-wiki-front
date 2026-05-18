@@ -50,8 +50,8 @@ declare module '@cyberfabric/react' {
     'wiki/tree/load': { spaceSlug: string; mode: ViewMode; path?: string; filters?: string[] };
     /** Lazy-load a subtree directly via git-provider (skips file-mapping; works without backend support for `path` in the wiki tree endpoint) */
     'wiki/git-tree/load': { space: Space; path: string };
-    /** File tree loaded — `path` echoed back so consumers can splice children into the existing tree */
-    'wiki/tree/loaded': { tree: TreeNode[]; path?: string };
+    /** File tree loaded — `path` echoed back so consumers can splice children into the existing tree; `mode` echoed so consumers loading both modes can route the payload. Subtree responses from `wiki/git-tree/load` omit `mode`. */
+    'wiki/tree/loaded': { tree: TreeNode[]; path?: string; mode?: ViewMode };
     /** File tree load error */
     'wiki/tree/error': { error: string };
     /** Navigate to a file */

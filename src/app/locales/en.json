@@ -610,7 +610,8 @@
     "sourceH2": "H2",
     "sourceFrontmatter": "Frontmatter",
     "sourceFilename": "Filename",
-    "sourceCustom": "Custom"
+    "sourceCustom": "Custom",
+    "customNamePlaceholder": "Custom name"
   },
   "comment": {
     "unknownAuthor": "Unknown",
