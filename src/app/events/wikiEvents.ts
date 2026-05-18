@@ -47,7 +47,7 @@ declare module '@cyberfabric/react' {
     /** Space operation error */
     'wiki/space/error': { error: string };
     /** Load file tree for a space (path = '' loads root, otherwise lazy-loads children of that folder) */
-    'wiki/tree/load': { spaceSlug: string; mode: ViewMode; path?: string };
+    'wiki/tree/load': { spaceSlug: string; mode: ViewMode; path?: string; filters?: string[] };
     /** Lazy-load a subtree directly via git-provider (skips file-mapping; works without backend support for `path` in the wiki tree endpoint) */
     'wiki/git-tree/load': { space: Space; path: string };
     /** File tree loaded — `path` echoed back so consumers can splice children into the existing tree */

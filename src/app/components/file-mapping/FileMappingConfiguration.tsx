@@ -65,11 +65,16 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
       }),
     ];
     loadFileMappings(space.slug);
-    loadFileTree(space.slug, ViewMode.Documents);
     return () => {
       subs.forEach((s) => s.unsubscribe());
     };
   }, [space.slug]);
+
+  // Reload tree whenever the active filter set changes (initial mount uses the
+  // space's persisted filters; subsequent reloads use the optimistic local state).
+  useEffect(() => {
+    loadFileTree(space.slug, ViewMode.Documents, undefined, filters);
+  }, [space.slug, filters]);
 
   // Index mappings by path (without trailing slash)
   const mappingsByPath = useMemo(() => {

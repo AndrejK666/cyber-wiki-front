@@ -32,8 +32,13 @@ export function deleteSpace(slug: string): void {
   eventBus.emit('wiki/space/delete', { slug });
 }
 
-export function loadFileTree(spaceSlug: string, mode: ViewMode, path?: string): void {
-  eventBus.emit('wiki/tree/load', { spaceSlug, mode, path });
+export function loadFileTree(
+  spaceSlug: string,
+  mode: ViewMode,
+  path?: string,
+  filters?: string[],
+): void {
+  eventBus.emit('wiki/tree/load', { spaceSlug, mode, path, filters });
 }
 
 export function loadGitSubtree(space: Space, path: string): void {

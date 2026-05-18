@@ -131,10 +131,10 @@ export function registerWikiEffects(): void {
   // Load file tree (via FileMappingApiService — applies mappings). Used for
   // root loads only; subfolders lazy-load via `wiki/git-tree/load` because
   // the wiki tree endpoint currently ignores `path`.
-  eventBus.on('wiki/tree/load', async ({ spaceSlug, mode, path }) => {
+  eventBus.on('wiki/tree/load', async ({ spaceSlug, mode, path, filters }) => {
     try {
       const fmService = apiRegistry.getService(FileMappingApiService);
-      const response = await fmService.getTree({ spaceSlug, mode, path });
+      const response = await fmService.getTree({ spaceSlug, mode, path, filters });
       if (response) {
         eventBus.emit('wiki/tree/loaded', { tree: response.tree, path });
       }
