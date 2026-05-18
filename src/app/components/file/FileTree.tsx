@@ -25,6 +25,8 @@ interface FileTreeProps {
   expandedPaths?: Set<string>;
   /** Render extra controls per row (e.g. visibility checkbox in config mode, draft markers in space view). */
   renderRowExtras?: (node: TreeNode) => ReactNode;
+  /** Extra classes per row (e.g. `opacity-40` for hidden rows in config mode). */
+  getRowClassName?: (node: TreeNode) => string;
   /** Ignore mapped `display_name` and render raw filenames. Used by the
    *  file-mapping config panel so users see what they're configuring. */
   useRawNames?: boolean;
@@ -67,6 +69,7 @@ interface FileTreeNodeProps {
   expanded: Set<string>;
   toggle: (path: string, node: TreeNode) => void;
   renderRowExtras?: (node: TreeNode) => ReactNode;
+  getRowClassName?: (node: TreeNode) => string;
   useRawNames?: boolean;
   onSelectFile?: (node: TreeNode) => void;
 }
@@ -78,6 +81,7 @@ function FileTreeNode({
   expanded,
   toggle,
   renderRowExtras,
+  getRowClassName,
   useRawNames,
   onSelectFile,
 }: FileTreeNodeProps) {
@@ -86,6 +90,7 @@ function FileTreeNode({
   const isSelected = selectedPath === node.path;
   const rawLabel = node.name || node.path.split('/').pop() || node.path;
   const label = useRawNames ? rawLabel : (node.display_name || rawLabel);
+  const extraClass = getRowClassName?.(node) ?? '';
   const sortedChildren = node.children
     ? [...node.children].sort((a, b) => compareNodes(a, b, useRawNames))
     : [];
@@ -96,7 +101,7 @@ function FileTreeNode({
       <div
         className={`flex items-center gap-1 ${indentClass} pr-2 py-1 text-sm cursor-pointer hover:bg-accent/50 ${
           isSelected ? 'bg-accent text-accent-foreground' : ''
-        }`}
+        } ${extraClass}`}
         onClick={() => {
           if (isDir) toggle(node.path, node);
           else onSelectFile?.(node);
@@ -142,6 +147,7 @@ function FileTreeNode({
             expanded={expanded}
             toggle={toggle}
             renderRowExtras={renderRowExtras}
+            getRowClassName={getRowClassName}
             useRawNames={useRawNames}
             onSelectFile={onSelectFile}
           />
@@ -156,6 +162,7 @@ export function FileTree({
   initiallyExpandedPaths,
   expandedPaths,
   renderRowExtras,
+  getRowClassName,
   useRawNames,
   onSelectFile,
   onToggleFolder,
@@ -201,6 +208,7 @@ export function FileTree({
             expanded={expanded}
             toggle={toggle}
             renderRowExtras={renderRowExtras}
+            getRowClassName={getRowClassName}
             useRawNames={useRawNames}
             onSelectFile={onSelectFile}
           />

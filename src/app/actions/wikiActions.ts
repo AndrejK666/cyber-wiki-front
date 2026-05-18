@@ -41,10 +41,6 @@ export function loadFileTree(
   eventBus.emit('wiki/tree/load', { spaceSlug, mode, path, filters });
 }
 
-export function loadGitSubtree(space: Space, path: string): void {
-  eventBus.emit('wiki/git-tree/load', { space, path });
-}
-
 export function openFile(space: Space, filePath: string): void {
   eventBus.emit('wiki/file/open', { space, filePath });
 }

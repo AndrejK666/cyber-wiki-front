@@ -61,12 +61,26 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
     filtersRef.current = filters;
   }, [filters]);
 
+  // Scroll-position preservation: snapshot both panes before a tree reload
+  // fires, restore on the next paint after the tree state lands.
+  const configScrollRef = useRef<HTMLDivElement | null>(null);
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingScrollRef = useRef<{ config: number; preview: number } | null>(null);
+
+  const captureScroll = useCallback(() => {
+    pendingScrollRef.current = {
+      config: configScrollRef.current?.scrollTop ?? 0,
+      preview: previewScrollRef.current?.scrollTop ?? 0,
+    };
+  }, []);
+
   const reloadTrees = useCallback(() => {
+    captureScroll();
     // Dev tree is raw — load with no filters so users can configure everything.
     loadFileTree(space.slug, ViewMode.Dev, undefined, []);
     // Documents tree applies the current filters + mapping treatment.
     loadFileTree(space.slug, ViewMode.Documents, undefined, filtersRef.current);
-  }, [space.slug]);
+  }, [captureScroll, space.slug]);
 
   // Subscribe to events + initial load. Mapping mutations / refresh / sync /
   // space updates bust both trees so labels and visibility stay in sync.
@@ -80,9 +94,34 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
         if (matchesSpace(payload)) setMappings(payload.mappings);
       }),
       eventBus.on('wiki/tree/loaded', (payload) => {
+        // Subtree splice (lazy-loaded folder children from wiki/git-tree/load).
+        // Mirrors the SpaceViewPage splicer: normalise relative paths against
+        // the requested parent path, then graft into the matching folder node.
+        if (payload.path) {
+          const parentPath = payload.path;
+          const prefix = parentPath.endsWith('/') ? parentPath : `${parentPath}/`;
+          const normalized = (payload.tree ?? []).map((child) => {
+            const isAbsolute = child.path.startsWith(prefix);
+            return {
+              ...child,
+              path: isAbsolute ? child.path : `${prefix}${child.path}`,
+            };
+          });
+          const splice = (nodes: TreeNode[]): TreeNode[] =>
+            nodes.map((n) => {
+              if (n.path === parentPath) return { ...n, children: normalized };
+              if (n.children && n.children.length > 0) {
+                return { ...n, children: splice(n.children) };
+              }
+              return n;
+            });
+          setDevTree((prev) => splice(prev));
+          setDocumentTree((prev) => splice(prev));
+          return;
+        }
         if (payload.mode === ViewMode.Dev) {
           setDevTree(payload.tree ?? []);
-        } else {
+        } else if (payload.mode === ViewMode.Documents) {
           setDocumentTree(payload.tree ?? []);
         }
       }),
@@ -109,6 +148,16 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
   useEffect(() => {
     loadFileTree(space.slug, ViewMode.Documents, undefined, filters);
   }, [space.slug, filters]);
+
+  // After either tree state lands, restore the scroll positions captured
+  // right before the reload was triggered (no-op when nothing was queued).
+  useEffect(() => {
+    const queued = pendingScrollRef.current;
+    if (!queued) return;
+    if (configScrollRef.current) configScrollRef.current.scrollTop = queued.config;
+    if (previewScrollRef.current) previewScrollRef.current.scrollTop = queued.preview;
+    pendingScrollRef.current = null;
+  }, [devTree, documentTree]);
 
   // Index mappings by path (without trailing slash) so the config panel can
   // look up the current row state.
@@ -291,14 +340,15 @@ export function FileMappingConfiguration({ space, onClose }: FileMappingConfigur
 
         {/* Two-pane editor — both trees start at the same vertical position. */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="flex-1 min-w-0 border-r border-border overflow-auto">
+          <div ref={configScrollRef} className="flex-1 min-w-0 border-r border-border overflow-auto">
             <FileMappingConfigPanel
-              spaceSlug={space.slug}
+              space={space}
+              spaceDefaultSource={defaultSource}
               tree={devTree}
               mappings={mappingsByPath}
             />
           </div>
-          <div className="w-96 shrink-0 overflow-auto">
+          <div ref={previewScrollRef} className="w-96 shrink-0 overflow-auto">
             <FileMappingPreview
               viewMode={previewViewMode}
               documentTree={documentTree}

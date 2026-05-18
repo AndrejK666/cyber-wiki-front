@@ -347,6 +347,9 @@ export type FileMappingCreate = {
   display_name?: string | null;
   /** `null` means "inherit from parent folder rule or space default". */
   display_name_source: DisplayNameSource | null;
+  /** Folder-only: cascading display-name source applied to every descendant
+   *  file that doesn't have an explicit `display_name_source`. */
+  children_display_name_source?: DisplayNameSource | null;
   sort_order?: number | null;
   icon?: string | null;
   apply_to_children?: boolean;

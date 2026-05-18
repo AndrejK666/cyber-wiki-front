@@ -25,7 +25,6 @@ import {
   loadSpaces,
   selectSpace,
   loadFileTree,
-  loadGitSubtree,
   openFile,
 } from '@/app/actions/wikiActions';
 import { loadComments } from '@/app/actions/enrichmentActions';
@@ -316,12 +315,17 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
       });
     }
     if (nextToLoad) {
-      loadGitSubtree(selectedSpace, nextToLoad);
+      loadFileTree(
+        selectedSpace.slug,
+        viewMode,
+        nextToLoad,
+        selectedSpace.filters ?? [],
+      );
     } else if (toExpand.length === ancestors.length) {
       // Every ancestor is loaded and expanded — we're done.
       setPendingExpandPath(null);
     }
-  }, [pendingExpandPath, selectedSpace, tree]);
+  }, [pendingExpandPath, selectedSpace, tree, viewMode]);
 
   // Splice lazy-loaded children into the existing tree at a given path.
   const spliceChildren = useCallback((path: string, children: TreeNode[]) => {
@@ -424,19 +428,26 @@ const SpaceViewPage: React.FC<SpaceViewPageProps> = ({ navigate }) => {
         } else {
           next.add(path);
           // Lazy-load subtree if this folder hasn't been expanded yet.
-          // Goes via git-provider directly because the wiki tree endpoint
-          // currently ignores `path` and would return root again.
+          // We use the wiki get_tree endpoint (same one used for root) so
+          // mappings + visibility + filters apply consistently. The bare
+          // git-provider tree endpoint enforces strict service-token matching
+          // that can reject valid requests.
           if (
             selectedSpace &&
             (!node.children || node.children.length === 0)
           ) {
-            loadGitSubtree(selectedSpace, path);
+            loadFileTree(
+              selectedSpace.slug,
+              viewMode,
+              path,
+              selectedSpace.filters ?? [],
+            );
           }
         }
         return next;
       });
     },
-    [selectedSpace],
+    [selectedSpace, viewMode],
   );
 
   const handleSelectFile = useCallback(

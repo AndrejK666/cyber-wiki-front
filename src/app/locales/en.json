@@ -583,7 +583,8 @@
   "fileMappingPreview": {
     "title": "Preview",
     "documentsView": "Documents view",
-    "developerView": "Developer view"
+    "developerView": "Developer view",
+    "colName": "Name"
   },
   "fileMapping": {
     "title": "File Mapping Configuration",
@@ -604,14 +605,25 @@
   },
   "fileMappingConfigPanel": {
     "visible": "Visible",
-    "override": "override",
+    "override": "Override",
     "sourceInherit": "Inherit",
     "sourceH1": "H1",
     "sourceH2": "H2",
     "sourceFrontmatter": "Frontmatter",
     "sourceFilename": "Filename",
     "sourceCustom": "Custom",
-    "customNamePlaceholder": "Custom name"
+    "customNamePlaceholder": "Custom name",
+    "childrenInherit": "Inherit",
+    "colFile": "File / Folder",
+    "colVisible": "Visible",
+    "colDisplayAs": "Display As",
+    "colStatus": "Status",
+    "colForChildren": "For Children",
+    "statusFromParent": "← {{source}} (parent)",
+    "statusFromSpace": "← {{source}} (space)",
+    "inheritedFromSpace": "Inherited from space default",
+    "inheritedFromParentTitle": "Inherited from {{path}}",
+    "hiddenByParent": "Hidden by a parent folder"
   },
   "comment": {
     "unknownAuthor": "Unknown",

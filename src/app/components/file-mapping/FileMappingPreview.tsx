@@ -7,6 +7,7 @@
  * the same vertical position for easy side-by-side comparison.
  */
 
+import { useTranslation } from '@cyberfabric/react';
 import { FileTree } from '@/app/components/file/FileTree';
 import { ViewMode, type TreeNode } from '@/app/api';
 
@@ -23,6 +24,14 @@ export function FileMappingPreview({
   documentTree,
   devTree,
 }: FileMappingPreviewProps) {
+  const { t } = useTranslation();
   const tree = viewMode === ViewMode.Documents ? documentTree : devTree ?? documentTree;
-  return <FileTree tree={tree} />;
+  return (
+    <div className="text-foreground">
+      <div className="sticky top-0 z-10 bg-muted/95 border-b border-border px-2 py-2 text-xs font-semibold text-muted-foreground flex items-center">
+        <span className="flex-1 min-w-0">{t('fileMappingPreview.colName')}</span>
+      </div>
+      <FileTree tree={tree} />
+    </div>
+  );
 }
